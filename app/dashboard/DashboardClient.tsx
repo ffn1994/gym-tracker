@@ -55,12 +55,6 @@ type Workout = {
 /* ─── Constants ──────────────────────────────────────────── */
 
 const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: "🚴" };
-const DOW_AR: Record<string, string> = {
-  Saturday: "السبت",
-  Monday: "الاثنين",
-  Wednesday: "الأربعاء",
-  Friday: "الجمعة",
-};
 
 /* ─── Helpers ────────────────────────────────────────────── */
 
@@ -487,7 +481,6 @@ function StatsTab({
           {programDays.map(day => {
             const done = dayTrainedThisWeek(day, programExercises, workouts, weekStart);
             const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
-            const dow = isEn ? day.day_of_week.slice(0, 3) : DOW_AR[day.day_of_week] ?? day.day_of_week;
             return (
               <Link
                 key={day.id}
@@ -500,7 +493,6 @@ function StatsTab({
               >
                 <span className="text-xl">{done ? "✅" : DAY_ICONS[day.day_number]}</span>
                 <p className="text-xs font-medium text-white leading-tight">{dayName}</p>
-                <p className="text-xs text-gray-600">{dow}</p>
               </Link>
             );
           })}
