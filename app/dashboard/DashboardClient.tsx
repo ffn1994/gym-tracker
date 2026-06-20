@@ -271,6 +271,8 @@ function ProgressTab({
   workouts: Workout[];
   isEn: boolean;
 }) {
+  const [openExId, setOpenExId] = useState<number | null>(null);
+
   if (workouts.length === 0) {
     return (
       <div className="text-center py-20 text-gray-600">
@@ -320,16 +322,22 @@ function ProgressTab({
                 const gain = latestW - firstW;
                 const isTimed = ex.duration_seconds !== null && ex.reps_min === null;
                 const exName = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
-                const lastEntry = hist[hist.length - 1];
+                const lastEntry = sorted[sorted.length - 1];
+                const hasChart = !isTimed && hist.length >= 2;
+                const isOpen = openExId === ex.id;
 
                 return (
                   <div
                     key={ex.id}
-                    className={`px-4 py-3.5 ${
-                      idx < withData.length - 1 ? "border-b border-gray-800/60" : ""
-                    }`}
+                    className={idx < withData.length - 1 ? "border-b border-gray-800/60" : ""}
                   >
-                    <div className="flex items-center gap-4">
+                    {/* Row — always visible, clickable if chart available */}
+                    <button
+                      onClick={() => hasChart && setOpenExId(isOpen ? null : ex.id)}
+                      className={`w-full px-4 py-3.5 flex items-center gap-3 text-start ${
+                        hasChart ? "cursor-pointer active:bg-gray-800/40" : "cursor-default"
+                      }`}
+                    >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{exName}</p>
                         <p className="text-xs text-gray-500 mt-0.5">
@@ -359,9 +367,18 @@ function ProgressTab({
                           </>
                         )}
                       </div>
-                    </div>
-                    {!isTimed && hist.length >= 2 && (
-                      <ProgressChart history={hist} />
+                      {hasChart && (
+                        <span className="text-gray-500 text-xs shrink-0 w-3">
+                          {isOpen ? "▲" : "▼"}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Chart — dropdown */}
+                    {isOpen && hasChart && (
+                      <div className="px-4 pb-4 pt-0">
+                        <ProgressChart history={hist} />
+                      </div>
                     )}
                   </div>
                 );
