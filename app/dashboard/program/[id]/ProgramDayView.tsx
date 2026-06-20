@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useLang } from "@/app/lang";
 import { logExercise } from "./actions";
 
@@ -46,6 +46,7 @@ type WorkoutEntry = {
 /* ─── Constants ──────────────────────────────────────────────── */
 
 const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: "🚴" };
+const REST_SECS = 90;
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 
@@ -68,7 +69,6 @@ function formatTarget(ex: ProgramExercise) {
   return parts.join("") || "—";
 }
 
-/** Get history entries that match this exercise (fuzzy) */
 function getHistory(ex: ProgramExercise, allWorkouts: WorkoutEntry[]): WorkoutEntry[] {
   const ar = ex.exercise_name.toLowerCase().trim();
   const en = ex.exercise_name_en?.toLowerCase().trim() ?? "";
@@ -80,12 +80,10 @@ function getHistory(ex: ProgramExercise, allWorkouts: WorkoutEntry[]): WorkoutEn
   });
 }
 
-/** Compute week label (W1, W2…) relative to first-ever entry for this exercise */
 function weekLabel(date: string, history: WorkoutEntry[], prefix: string): string {
   if (history.length === 0) return "";
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
-  const firstDate = sorted[0].date;
-  const first = new Date(firstDate + "T00:00:00");
+  const first = new Date(sorted[0].date + "T00:00:00");
   const d = new Date(date + "T00:00:00");
   const diffDays = Math.floor((d.getTime() - first.getTime()) / (1000 * 60 * 60 * 24));
   return `${prefix}${Math.floor(diffDays / 7) + 1}`;
@@ -95,8 +93,8 @@ function weekLabel(date: string, history: WorkoutEntry[], prefix: string): strin
 
 type ExGroup =
   | { kind: "single"; ex: ProgramExercise }
-  | { kind: "choice"; exercises: ProgramExercise[] }   // pick one
-  | { kind: "circuit"; exercises: ProgramExercise[] }; // do all, log rounds
+  | { kind: "choice"; exercises: ProgramExercise[] }
+  | { kind: "circuit"; exercises: ProgramExercise[] };
 
 function isChoiceExercise(ex: ProgramExercise): boolean {
   const note = (ex.notes_en ?? ex.notes ?? "").toLowerCase();
@@ -131,13 +129,249 @@ function groupExercises(exercises: ProgramExercise[]): ExGroup[] {
   return result;
 }
 
-/* ─── Cardio Group Card (pick one of N alternatives) ─────────── */
+/* ─── Stepper input (+/−) ────────────────────────────────────── */
 
-function CardioGroupCard({
-  exercises,
-  allHistory,
-  programDayId,
+function Stepper({
+  value, onChange, step, placeholder,
 }: {
+  value: string;
+  onChange: (v: string) => void;
+  step: number;
+  placeholder: string;
+}) {
+  function adjust(delta: number) {
+    const cur = parseFloat(value) || 0;
+    const next = Math.max(0, Math.round((cur + delta) * 100) / 100);
+    onChange(String(next));
+  }
+  return (
+    <div className="flex items-center flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => adjust(-step)}
+        className="px-2 py-2.5 text-gray-400 active:bg-gray-700 hover:text-white text-base leading-none select-none shrink-0"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-0 flex-1 min-w-0 text-center text-sm text-white bg-transparent border-0 focus:outline-none placeholder-gray-600"
+      />
+      <button
+        type="button"
+        onClick={() => adjust(step)}
+        className="px-2 py-2.5 text-gray-400 active:bg-gray-700 hover:text-white text-base leading-none select-none shrink-0"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+/* ─── Rest Timer banner ──────────────────────────────────────── */
+
+function RestTimer({ seconds, onDismiss, isEn }: { seconds: number; onDismiss: () => void; isEn: boolean }) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  const display = mins > 0
+    ? `${mins}:${String(secs).padStart(2, "0")}`
+    : `${secs}s`;
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-amber-950/30 border border-amber-800/30 px-3 py-2">
+      <span className="text-xs text-amber-400 font-medium">{isEn ? "Rest" : "راحة"}</span>
+      <span className={`text-base font-bold font-mono ${seconds <= 10 ? "text-red-400" : "text-amber-300"}`}>
+        {display}
+      </span>
+      <button onClick={onDismiss} className="text-xs text-gray-600 hover:text-gray-400 transition">
+        {isEn ? "Skip" : "تخطى"}
+      </button>
+    </div>
+  );
+}
+
+function useRestTimer() {
+  const [restSeconds, setRestSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (restSeconds === null || restSeconds <= 0) {
+      if (restSeconds === 0) setRestSeconds(null);
+      return;
+    }
+    const id = setTimeout(() => setRestSeconds(s => s !== null ? s - 1 : null), 1000);
+    return () => clearTimeout(id);
+  }, [restSeconds]);
+
+  return {
+    restSeconds,
+    startRest: () => setRestSeconds(REST_SECS),
+    stopRest: () => setRestSeconds(null),
+  };
+}
+
+/* ─── Exercise Tracker Card ──────────────────────────────────── */
+
+function ExerciseTrackerCard({ ex, history, programDayId }: {
+  ex: ProgramExercise;
+  history: WorkoutEntry[];
+  programDayId: number;
+}) {
+  const { lang, t } = useLang();
+  const isEn = lang === "en";
+
+  const exName  = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
+  const exNotes = isEn ? (ex.notes_en ?? ex.notes) : ex.notes;
+  const isTimed = ex.duration_seconds !== null && ex.reps_min === null && ex.sets !== null;
+  const showWeight = !isTimed && ex.muscle_group !== "Cardio";
+
+  const latest = history[0];
+  const [weight, setWeight] = useState(latest ? String(latest.weight_kg) : "");
+  const [sets,   setSets]   = useState(latest ? String(latest.sets) : (ex.sets ? String(ex.sets) : ""));
+  const [reps,   setReps]   = useState(
+    latest ? String(latest.reps)
+      : isTimed ? (ex.duration_seconds ? String(ex.duration_seconds) : "")
+      : (ex.reps_max ? String(ex.reps_max) : "")
+  );
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+  const { restSeconds, startRest, stopRest } = useRestTimer();
+
+  const todayStr    = new Date().toISOString().split("T")[0];
+  const loggedToday = history.some(h => h.date === todayStr);
+
+  function doLog(w: number, s: number, r: number) {
+    startTransition(async () => {
+      try {
+        await logExercise({
+          exercise_name: ex.exercise_name,
+          muscle_group: ex.muscle_group,
+          weight_kg: w, sets: s, reps: r, notes: "",
+          program_day_id: programDayId,
+        });
+        setFlash("ok");
+        startRest();
+        setTimeout(() => setFlash("idle"), 1800);
+      } catch {
+        setFlash("err");
+        setTimeout(() => setFlash("idle"), 1800);
+      }
+    });
+  }
+
+  function submit() {
+    doLog(parseFloat(weight) || 0, parseInt(sets) || 1, parseInt(reps) || 0);
+  }
+
+  function repeatLast() {
+    if (!latest) return;
+    doLog(Number(latest.weight_kg), latest.sets, latest.reps);
+  }
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-sm font-semibold text-white">{exName}</span>
+        <div className="flex items-center gap-2">
+          {loggedToday && (
+            <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
+          )}
+          <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
+            {formatTarget(ex)}
+          </span>
+        </div>
+      </div>
+
+      {/* History */}
+      {history.length > 0 ? (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
+          {history.slice(0, 8).map((entry, idx) => {
+            const prev  = history[idx + 1];
+            const delta = prev && !isTimed ? entry.weight_kg - prev.weight_kg : null;
+            const wk    = weekLabel(entry.date, history, t.weekLabel);
+            return (
+              <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-xs">
+                <span className="w-7 text-gray-600 shrink-0 font-mono">{wk}</span>
+                <span className="w-14 text-gray-500 shrink-0">{formatDate(entry.date)}</span>
+                {!isTimed && (
+                  <span className="w-14 text-gray-300 shrink-0">
+                    {entry.weight_kg > 0 ? `${entry.weight_kg} kg` : "BW"}
+                  </span>
+                )}
+                <span className="text-gray-300 flex-1">
+                  {isTimed ? `${entry.sets} × ${entry.reps}s` : `${entry.sets}×${entry.reps}`}
+                </span>
+                {delta !== null && delta !== 0 && (
+                  <span className={`font-semibold shrink-0 ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
+                    {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}
+                  </span>
+                )}
+                {delta === 0 && <span className="text-gray-700 shrink-0">—</span>}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
+      )}
+
+      {/* Form */}
+      <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+
+        {/* Rest timer */}
+        {restSeconds !== null && (
+          <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
+        )}
+
+        {/* Steppers */}
+        <div className="flex gap-1.5">
+          {showWeight && (
+            <Stepper value={weight} onChange={setWeight} step={2.5} placeholder={t.weightKg} />
+          )}
+          <Stepper value={sets} onChange={setSets} step={1} placeholder={t.sets} />
+          <Stepper value={reps} onChange={setReps} step={1} placeholder={isTimed ? t.seconds : t.reps} />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-1.5">
+          {latest && (
+            <button
+              onClick={repeatLast}
+              disabled={pending}
+              title={isEn ? "Repeat last session" : "كرر آخر جلسة"}
+              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
+            >
+              🔄
+            </button>
+          )}
+          <button
+            onClick={submit}
+            disabled={pending}
+            className={`flex-1 h-9 rounded-lg font-bold text-sm transition ${
+              flash === "ok"  ? "bg-green-600 text-white" :
+              flash === "err" ? "bg-red-600 text-white"   :
+              "bg-blue-600 hover:bg-blue-500 text-white"
+            } disabled:opacity-50`}
+          >
+            {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
+          </button>
+        </div>
+      </div>
+
+      {exNotes && (
+        <p className="text-xs text-gray-600 px-4 pb-2.5">{exNotes}</p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Cardio Group Card (pick one of N) ─────────────────────── */
+
+function CardioGroupCard({ exercises, allHistory, programDayId }: {
   exercises: ProgramExercise[];
   allHistory: WorkoutEntry[];
   programDayId: number;
@@ -147,49 +381,41 @@ function CardioGroupCard({
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+  const { restSeconds, startRest, stopRest } = useRestTimer();
 
-  const selected = exercises[selectedIdx];
-  const isTimed = selected.duration_seconds !== null && selected.reps_min === null;
-  const history = getHistory(selected, allHistory);
-  const latest = history[0];
-  const todayStr = new Date().toISOString().split("T")[0];
-  const loggedToday = history.some(h => h.date === todayStr);
-
+  const selected       = exercises[selectedIdx];
+  const isTimed        = selected.duration_seconds !== null && selected.reps_min === null;
   const isLongDuration = (selected.duration_seconds ?? 0) >= 120;
-  const [sets, setSets] = useState(
-    latest ? String(latest.sets) : (selected.sets ? String(selected.sets) : "")
-  );
-  const [reps, setReps] = useState(
-    latest ? String(latest.reps) : ""
-  );
+  const history        = getHistory(selected, allHistory);
+  const latest         = history[0];
+  const todayStr       = new Date().toISOString().split("T")[0];
+  const loggedToday    = history.some(h => h.date === todayStr);
+
+  const [sets, setSets] = useState(latest ? String(latest.sets) : (selected.sets ? String(selected.sets) : ""));
+  const [reps, setReps] = useState(latest ? String(latest.reps) : "");
 
   function handleSelect(idx: number) {
     if (idx === selectedIdx) return;
     setSelectedIdx(idx);
-    const ex = exercises[idx];
+    const ex   = exercises[idx];
     const hist = getHistory(ex, allHistory);
     const last = hist[0];
-    const timed = ex.duration_seconds !== null && ex.reps_min === null;
     setSets(last ? String(last.sets) : (ex.sets ? String(ex.sets) : ""));
     setReps(last ? String(last.reps) : "");
     setFlash("idle");
   }
 
-  function submit() {
-    const s = parseInt(sets) || 1;
-    const r = parseInt(reps) || 0;
+  function doLog(s: number, r: number) {
     startTransition(async () => {
       try {
         await logExercise({
           exercise_name: selected.exercise_name,
           muscle_group: selected.muscle_group,
-          weight_kg: 0,
-          sets: s,
-          reps: r,
-          notes: "",
+          weight_kg: 0, sets: s, reps: r, notes: "",
           program_day_id: programDayId,
         });
         setFlash("ok");
+        startRest();
         setTimeout(() => setFlash("idle"), 1800);
       } catch {
         setFlash("err");
@@ -198,10 +424,11 @@ function CardioGroupCard({
     });
   }
 
-  const rawNote = isEn ? (selected.notes_en ?? selected.notes) : selected.notes;
-  const displayNote = rawNote
-    ?.replace(/\s*[—–-]\s*(pick one of the three|اختر واحد[^.،]*)\.?/gi, "")
-    .trim();
+  function submit() { doLog(parseInt(sets) || 1, parseInt(reps) || 0); }
+  function repeatLast() { if (latest) doLog(latest.sets, latest.reps); }
+
+  const rawNote    = isEn ? (selected.notes_en ?? selected.notes) : selected.notes;
+  const displayNote = rawNote?.replace(/\s*[—–-]\s*(pick one of the three|اختر واحد[^.،]*)\.?/gi, "").trim();
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
@@ -222,9 +449,7 @@ function CardioGroupCard({
           const name = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
           const hist = getHistory(ex, allHistory);
           return (
-            <button
-              key={ex.id}
-              onClick={() => handleSelect(idx)}
+            <button key={ex.id} onClick={() => handleSelect(idx)}
               className={`flex-1 py-2.5 px-1 text-xs font-semibold rounded-xl border transition text-center leading-tight ${
                 selectedIdx === idx
                   ? "bg-blue-600 border-blue-500 text-white"
@@ -242,19 +467,17 @@ function CardioGroupCard({
         })}
       </div>
 
-      {/* History for selected */}
+      {/* History */}
       {history.length > 0 ? (
         <div className="border-t border-gray-800 divide-y divide-gray-800/60">
-          {history.slice(0, 6).map((entry, idx) => {
+          {history.slice(0, 6).map(entry => {
             const wk = weekLabel(entry.date, history, t.weekLabel);
             return (
               <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-xs">
                 <span className="w-7 text-gray-600 shrink-0 font-mono">{wk}</span>
                 <span className="w-14 text-gray-500 shrink-0">{formatDate(entry.date)}</span>
                 <span className="text-gray-300 flex-1">
-                  {isTimed
-                    ? `${entry.sets} × ${entry.reps}${isLongDuration ? "m" : "s"}`
-                    : `${entry.sets}×${entry.reps}`}
+                  {isTimed ? `${entry.sets} × ${entry.reps}${isLongDuration ? "m" : "s"}` : `${entry.sets}×${entry.reps}`}
                 </span>
               </div>
             );
@@ -264,51 +487,40 @@ function CardioGroupCard({
         <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
       )}
 
-      {/* Log form */}
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={sets}
-          onChange={e => setSets(e.target.value)}
-          placeholder={t.sets}
-          className="flex-1 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
-        />
-        <input
-          type="number"
-          inputMode="numeric"
-          value={reps}
-          onChange={e => setReps(e.target.value)}
-          placeholder={isLongDuration ? t.min : isTimed ? t.seconds : t.reps}
-          className="flex-1 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
-        />
-        <button
-          onClick={submit}
-          disabled={pending}
-          className={`shrink-0 h-9 px-3 rounded-lg font-bold text-sm transition ${
-            flash === "ok"  ? "bg-green-600 text-white" :
-            flash === "err" ? "bg-red-600 text-white"   :
-            "bg-blue-600 hover:bg-blue-500 text-white"
-          } disabled:opacity-50`}
-        >
-          {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
-        </button>
+      {/* Form */}
+      <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+        {restSeconds !== null && (
+          <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
+        )}
+        <div className="flex gap-1.5">
+          <Stepper value={sets} onChange={setSets} step={1} placeholder={t.sets} />
+          <Stepper value={reps} onChange={setReps} step={1} placeholder={isLongDuration ? t.min : isTimed ? t.seconds : t.reps} />
+        </div>
+        <div className="flex gap-1.5">
+          {latest && (
+            <button onClick={repeatLast} disabled={pending}
+              title={isEn ? "Repeat last" : "كرر آخر جلسة"}
+              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
+            >🔄</button>
+          )}
+          <button onClick={submit} disabled={pending}
+            className={`flex-1 h-9 rounded-lg font-bold text-sm transition ${
+              flash === "ok" ? "bg-green-600 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"
+            } disabled:opacity-50`}
+          >
+            {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
+          </button>
+        </div>
       </div>
 
-      {displayNote && (
-        <p className="text-xs text-gray-600 px-4 pb-2.5">{displayNote}</p>
-      )}
+      {displayNote && <p className="text-xs text-gray-600 px-4 pb-2.5">{displayNote}</p>}
     </div>
   );
 }
 
-/* ─── Circuit Card (run + recovery → one rounds input) ───────── */
+/* ─── Circuit Card (run + recovery → rounds only) ────────────── */
 
-function CircuitCard({
-  exercises,
-  allHistory,
-  programDayId,
-}: {
+function CircuitCard({ exercises, allHistory, programDayId }: {
   exercises: ProgramExercise[];
   allHistory: WorkoutEntry[];
   programDayId: number;
@@ -316,34 +528,28 @@ function CircuitCard({
   const { lang, t } = useLang();
   const isEn = lang === "en";
 
-  const primary = exercises[0];
-  const history = getHistory(primary, allHistory);
-  const latest = history[0];
-  const todayStr = new Date().toISOString().split("T")[0];
+  const primary     = exercises[0];
+  const history     = getHistory(primary, allHistory);
+  const latest      = history[0];
+  const todayStr    = new Date().toISOString().split("T")[0];
   const loggedToday = history.some(h => h.date === todayStr);
+  const { restSeconds, startRest, stopRest } = useRestTimer();
 
-  const [rounds, setRounds] = useState(
-    latest ? String(latest.sets) : (primary.sets ? String(primary.sets) : "")
-  );
+  const [rounds, setRounds] = useState(latest ? String(latest.sets) : (primary.sets ? String(primary.sets) : ""));
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
 
-  function submit() {
-    const s = parseInt(rounds) || 1;
+  function doLog(s: number) {
     startTransition(async () => {
       try {
         for (const ex of exercises) {
           await logExercise({
-            exercise_name: ex.exercise_name,
-            muscle_group: ex.muscle_group,
-            weight_kg: 0,
-            sets: s,
-            reps: 1,
-            notes: "",
-            program_day_id: programDayId,
+            exercise_name: ex.exercise_name, muscle_group: ex.muscle_group,
+            weight_kg: 0, sets: s, reps: 1, notes: "", program_day_id: programDayId,
           });
         }
         setFlash("ok");
+        startRest();
         setTimeout(() => setFlash("idle"), 1800);
       } catch {
         setFlash("err");
@@ -351,6 +557,9 @@ function CircuitCard({
       }
     });
   }
+
+  function submit()     { doLog(parseInt(rounds) || 1); }
+  function repeatLast() { if (latest) doLog(latest.sets); }
 
   const ICONS = ["🏃", "🚶"];
 
@@ -363,17 +572,11 @@ function CircuitCard({
           const name = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
           return (
             <div key={ex.id} className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-white">
-                {ICONS[idx] ?? "•"} {name}
-              </span>
+              <span className="text-sm font-semibold text-white">{ICONS[idx] ?? "•"} {name}</span>
               {idx === 0 && (
                 <div className="flex items-center gap-2 shrink-0">
-                  {loggedToday && (
-                    <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
-                  )}
-                  <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
-                    {primary.sets}×
-                  </span>
+                  {loggedToday && <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>}
+                  <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">{primary.sets}×</span>
                 </div>
               )}
             </div>
@@ -384,15 +587,13 @@ function CircuitCard({
       {/* History */}
       {history.length > 0 ? (
         <div className="border-t border-gray-800 divide-y divide-gray-800/60">
-          {history.slice(0, 6).map((entry, idx) => {
+          {history.slice(0, 6).map(entry => {
             const wk = weekLabel(entry.date, history, t.weekLabel);
             return (
               <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-xs">
                 <span className="w-7 text-gray-600 shrink-0 font-mono">{wk}</span>
                 <span className="w-14 text-gray-500 shrink-0">{formatDate(entry.date)}</span>
-                <span className="text-gray-300">
-                  {entry.sets} {isEn ? "rounds" : "جولات"}
-                </span>
+                <span className="text-gray-300">{entry.sets} {isEn ? "rounds" : "جولات"}</span>
               </div>
             );
           })}
@@ -401,197 +602,28 @@ function CircuitCard({
         <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
       )}
 
-      {/* Log form — rounds only */}
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={rounds}
-          onChange={e => setRounds(e.target.value)}
-          placeholder={isEn ? "Rounds" : "جولات"}
-          className="flex-1 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
-        />
-        <button
-          onClick={submit}
-          disabled={pending}
-          className={`shrink-0 h-9 px-5 rounded-lg font-bold text-sm transition ${
-            flash === "ok"  ? "bg-green-600 text-white" :
-            flash === "err" ? "bg-red-600 text-white"   :
-            "bg-blue-600 hover:bg-blue-500 text-white"
-          } disabled:opacity-50`}
-        >
-          {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Exercise Tracker Card ──────────────────────────────────── */
-
-function ExerciseTrackerCard({
-  ex,
-  history,
-  programDayId,
-}: {
-  ex: ProgramExercise;
-  history: WorkoutEntry[];
-  programDayId: number;
-}) {
-  const { lang, t } = useLang();
-  const isEn = lang === "en";
-
-  const exName  = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
-  const exNotes = isEn ? (ex.notes_en ?? ex.notes) : ex.notes;
-
-  // Is this a timed exercise (Plank, Dead Bug…)?
-  const isTimed = ex.duration_seconds !== null && ex.reps_min === null && ex.sets !== null;
-
-  // Defaults from last entry or program target
-  const latest = history[0];
-  const [weight, setWeight] = useState(latest ? String(latest.weight_kg) : "");
-  const [sets,   setSets]   = useState(latest ? String(latest.sets) : (ex.sets ? String(ex.sets) : ""));
-  const [reps,   setReps]   = useState(
-    latest
-      ? String(latest.reps)
-      : isTimed
-        ? (ex.duration_seconds ? String(ex.duration_seconds) : "")
-        : (ex.reps_max ? String(ex.reps_max) : "")
-  );
-  const [pending, startTransition] = useTransition();
-  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const loggedToday = history.some(h => h.date === todayStr);
-
-  function submit() {
-    const w = parseFloat(weight) || 0;
-    const s = parseInt(sets)   || 1;
-    const r = parseInt(reps)   || 0;
-    startTransition(async () => {
-      try {
-        await logExercise({
-          exercise_name: ex.exercise_name,
-          muscle_group: ex.muscle_group,
-          weight_kg: w,
-          sets: s,
-          reps: r,
-          notes: "",
-          program_day_id: programDayId,
-        });
-        setFlash("ok");
-        setTimeout(() => setFlash("idle"), 1800);
-      } catch {
-        setFlash("err");
-        setTimeout(() => setFlash("idle"), 1800);
-      }
-    });
-  }
-
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-sm font-semibold text-white">{exName}</span>
-        <div className="flex items-center gap-2">
-          {loggedToday && (
-            <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
-          )}
-          <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
-            {formatTarget(ex)}
-          </span>
-        </div>
-      </div>
-
-      {/* ── History table ── */}
-      {history.length > 0 ? (
-        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
-          {history.slice(0, 8).map((entry, idx) => {
-            const prev = history[idx + 1];
-            const delta = prev && !isTimed ? entry.weight_kg - prev.weight_kg : null;
-            const wk = weekLabel(entry.date, history, t.weekLabel);
-            return (
-              <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-xs">
-                <span className="w-7 text-gray-600 shrink-0 font-mono">{wk}</span>
-                <span className="w-14 text-gray-500 shrink-0">{formatDate(entry.date)}</span>
-                {!isTimed && (
-                  <span className="w-14 text-gray-300 shrink-0">
-                    {entry.weight_kg > 0 ? `${entry.weight_kg} kg` : "BW"}
-                  </span>
-                )}
-                <span className="text-gray-300 flex-1">
-                  {isTimed
-                    ? `${entry.sets} × ${entry.reps}s`
-                    : `${entry.sets}×${entry.reps}`}
-                </span>
-                {delta !== null && delta !== 0 && (
-                  <span className={`font-semibold shrink-0 ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
-                    {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}
-                  </span>
-                )}
-                {delta === 0 && <span className="text-gray-700 shrink-0">—</span>}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">
-          {t.noHistory}
-        </p>
-      )}
-
-      {/* ── Quick-log form ── */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 border-t border-gray-800">
-        {/* Weight — hide for timed or bodyweight cardio */}
-        {!isTimed && ex.muscle_group !== "Cardio" && (
-          <input
-            type="number"
-            inputMode="decimal"
-            value={weight}
-            onChange={e => setWeight(e.target.value)}
-            placeholder={t.weightKg}
-            className="w-0 flex-1 min-w-0 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
-          />
+      {/* Form */}
+      <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+        {restSeconds !== null && (
+          <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
-
-        {/* Sets */}
-        <input
-          type="number"
-          inputMode="numeric"
-          value={sets}
-          onChange={e => setSets(e.target.value)}
-          placeholder={t.sets}
-          className="w-0 flex-1 min-w-0 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
-        />
-
-        {/* Reps / Sec */}
-        <input
-          type="number"
-          inputMode="numeric"
-          value={reps}
-          onChange={e => setReps(e.target.value)}
-          placeholder={isTimed ? t.seconds : t.reps}
-          className="w-0 flex-1 min-w-0 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
-        />
-
-        {/* Submit */}
-        <button
-          onClick={submit}
-          disabled={pending}
-          className={`shrink-0 h-9 px-3 rounded-lg font-bold text-sm transition ${
-            flash === "ok"  ? "bg-green-600 text-white" :
-            flash === "err" ? "bg-red-600 text-white"   :
-            "bg-blue-600 hover:bg-blue-500 text-white"
-          } disabled:opacity-50`}
-        >
-          {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
-        </button>
+        <div className="flex gap-1.5">
+          {latest && (
+            <button onClick={repeatLast} disabled={pending}
+              title={isEn ? "Repeat last" : "كرر آخر جلسة"}
+              className="shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
+            >🔄</button>
+          )}
+          <Stepper value={rounds} onChange={setRounds} step={1} placeholder={isEn ? "Rounds" : "جولات"} />
+          <button onClick={submit} disabled={pending}
+            className={`shrink-0 h-10 px-5 rounded-lg font-bold text-sm transition ${
+              flash === "ok" ? "bg-green-600 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"
+            } disabled:opacity-50`}
+          >
+            {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
+          </button>
+        </div>
       </div>
-
-      {exNotes && (
-        <p className="text-xs text-gray-600 px-4 pb-2.5">{exNotes}</p>
-      )}
     </div>
   );
 }
@@ -603,10 +635,7 @@ function SimpleExRow({ ex, isEn }: { ex: ProgramExercise; isEn: boolean }) {
   const name  = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
   const notes = isEn ? (ex.notes_en ?? ex.notes) : ex.notes;
   return (
-    <div
-      className="flex items-start gap-3 py-2.5 cursor-pointer select-none"
-      onClick={() => setChecked(c => !c)}
-    >
+    <div className="flex items-start gap-3 py-2.5 cursor-pointer select-none" onClick={() => setChecked(c => !c)}>
       <span className={`mt-0.5 text-base shrink-0 transition-opacity ${checked ? "opacity-30" : ""}`}>
         {checked ? "✅" : "○"}
       </span>
@@ -623,11 +652,7 @@ function SimpleExRow({ ex, isEn }: { ex: ProgramExercise; isEn: boolean }) {
 
 /* ─── Section wrapper ─────────────────────────────────────────── */
 
-function Section({ title, color, children }: {
-  title: string;
-  color: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
   return (
     <div>
       <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${color}`}>{title}</p>
@@ -652,14 +677,10 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
   const todayWeekDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()];
   const isToday = day.day_of_week === todayWeekDay;
 
-  // Progress: count main+core exercises that have a history entry today
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr      = new Date().toISOString().split("T")[0];
   const mainExercises = exercises.filter(e => e.phase === "main" || e.phase === "core");
-  const doneToday = mainExercises.filter(ex => {
-    const hist = getHistory(ex, workoutHistory);
-    return hist.some(h => h.date === todayStr);
-  });
-  const pct = mainExercises.length > 0 ? Math.round((doneToday.length / mainExercises.length) * 100) : 0;
+  const doneToday     = mainExercises.filter(ex => getHistory(ex, workoutHistory).some(h => h.date === todayStr));
+  const pct           = mainExercises.length > 0 ? Math.round((doneToday.length / mainExercises.length) * 100) : 0;
 
   const warmup   = exercises.filter(e => e.phase === "warmup");
   const main     = exercises.filter(e => e.phase === "main");
@@ -667,10 +688,18 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
   const finisher = exercises.filter(e => e.phase === "finisher");
   const cooldown = exercises.filter(e => e.phase === "cooldown");
 
+  function renderGroups(list: ProgramExercise[]) {
+    return groupExercises(list).map((group, i) => {
+      if (group.kind === "choice")  return <CardioGroupCard key={`choice-${i}`}  exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />;
+      if (group.kind === "circuit") return <CircuitCard     key={`circuit-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />;
+      return <ExerciseTrackerCard key={group.ex.id} ex={group.ex} history={getHistory(group.ex, workoutHistory)} programDayId={day.id} />;
+    });
+  }
+
   return (
     <div className="space-y-6">
 
-      {/* ── Day header ── */}
+      {/* Day header */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -678,9 +707,7 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
               <span className="text-2xl">{DAY_ICONS[day.day_number]}</span>
               <span className="text-xs text-gray-500">{t.day} {day.day_number}</span>
               {isToday && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">
-                  {t.today}
-                </span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">{t.today}</span>
               )}
             </div>
             <h1 className="text-xl font-bold text-white">{dayName}</h1>
@@ -699,16 +726,12 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
               <span>{doneToday.length} / {mainExercises.length} {t.exercisesLogged}</span>
             </div>
             <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : "bg-blue-500"}`}
-                style={{ width: `${pct}%` }}
-              />
+              <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : "bg-blue-500"}`} style={{ width: `${pct}%` }} />
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Warmup ── */}
       {warmup.length > 0 && (
         <Section title={t.warmupTitle} color="text-yellow-500">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
@@ -717,45 +740,18 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
         </Section>
       )}
 
-      {/* ── Main workout tracker ── */}
       {main.length > 0 && (
         <Section title={t.mainTitle} color="text-blue-400">
-          <div className="space-y-3">
-            {groupExercises(main).map((group, i) => {
-              if (group.kind === "choice") return (
-                <CardioGroupCard key={`choice-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
-              );
-              if (group.kind === "circuit") return (
-                <CircuitCard key={`circuit-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
-              );
-              return (
-                <ExerciseTrackerCard key={group.ex.id} ex={group.ex} history={getHistory(group.ex, workoutHistory)} programDayId={day.id} />
-              );
-            })}
-          </div>
+          <div className="space-y-3">{renderGroups(main)}</div>
         </Section>
       )}
 
-      {/* ── Core tracker ── */}
       {core.length > 0 && (
         <Section title={t.coreTitle} color="text-purple-400">
-          <div className="space-y-3">
-            {groupExercises(core).map((group, i) => {
-              if (group.kind === "choice") return (
-                <CardioGroupCard key={`choice-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
-              );
-              if (group.kind === "circuit") return (
-                <CircuitCard key={`circuit-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
-              );
-              return (
-                <ExerciseTrackerCard key={group.ex.id} ex={group.ex} history={getHistory(group.ex, workoutHistory)} programDayId={day.id} />
-              );
-            })}
-          </div>
+          <div className="space-y-3">{renderGroups(core)}</div>
         </Section>
       )}
 
-      {/* ── Finisher ── */}
       {finisher.length > 0 && (
         <Section title={t.finisherTitle} color="text-orange-400">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
@@ -764,7 +760,6 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
         </Section>
       )}
 
-      {/* ── Cooldown ── */}
       {cooldown.length > 0 && (
         <Section title={t.cooldownTitle} color="text-green-500">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
@@ -773,7 +768,6 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
         </Section>
       )}
 
-      {/* ── Progression notes ── */}
       {t.progression[day.day_number] && (
         <Section title={t.progressionTitle} color="text-gray-500">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
@@ -787,7 +781,6 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
         </Section>
       )}
 
-      {/* ── Completed banner ── */}
       {isToday && pct === 100 && (
         <div className="text-center py-4 bg-green-900/20 border border-green-800 rounded-2xl">
           <p className="text-green-400 font-semibold">{t.completedToday}</p>
