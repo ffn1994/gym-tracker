@@ -47,11 +47,46 @@ const DAY_JS_TO_WEEK: Record<number, string> = {
 
 const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: "🚴" };
 
-const DAY_COLORS: Record<number, { active: string }> = {
-  1: { active: "border-blue-500 bg-blue-900/20"   },
-  2: { active: "border-green-500 bg-green-900/20"  },
-  3: { active: "border-orange-500 bg-orange-900/20"},
-  4: { active: "border-purple-500 bg-purple-900/20"},
+const DAY_COLORS: Record<number, {
+  gradient: string;
+  border: string;
+  hoverBorder: string;
+  glow: string;
+  dimGradient: string;
+  dimBorder: string;
+}> = {
+  1: {
+    gradient: "bg-gradient-to-br from-blue-950/80 to-gray-900",
+    border: "border-blue-800/60",
+    hoverBorder: "hover:border-blue-700/80",
+    glow: "shadow-[0_0_24px_rgba(59,130,246,0.2)]",
+    dimGradient: "bg-gradient-to-br from-blue-950/40 to-gray-900",
+    dimBorder: "border-blue-900/40",
+  },
+  2: {
+    gradient: "bg-gradient-to-br from-emerald-950/80 to-gray-900",
+    border: "border-emerald-800/60",
+    hoverBorder: "hover:border-emerald-700/80",
+    glow: "shadow-[0_0_24px_rgba(16,185,129,0.2)]",
+    dimGradient: "bg-gradient-to-br from-emerald-950/40 to-gray-900",
+    dimBorder: "border-emerald-900/40",
+  },
+  3: {
+    gradient: "bg-gradient-to-br from-orange-950/80 to-gray-900",
+    border: "border-orange-800/60",
+    hoverBorder: "hover:border-orange-700/80",
+    glow: "shadow-[0_0_24px_rgba(249,115,22,0.2)]",
+    dimGradient: "bg-gradient-to-br from-orange-950/40 to-gray-900",
+    dimBorder: "border-orange-900/40",
+  },
+  4: {
+    gradient: "bg-gradient-to-br from-purple-950/80 to-gray-900",
+    border: "border-purple-800/60",
+    hoverBorder: "hover:border-purple-700/80",
+    glow: "shadow-[0_0_24px_rgba(139,92,246,0.2)]",
+    dimGradient: "bg-gradient-to-br from-purple-950/40 to-gray-900",
+    dimBorder: "border-purple-900/40",
+  },
 };
 
 function findMatch(ar: string, en: string | null, workouts: WorkoutSummary[]) {
@@ -106,23 +141,25 @@ export function ProgramTab({
           <Link
             key={day.id}
             href={`/dashboard/program/${day.id}`}
-            className={`relative block text-start p-4 rounded-2xl border transition-all ${
-              isToday ? c.active : "border-gray-800 bg-gray-900 hover:border-gray-700"
+            className={`relative block text-start p-5 rounded-2xl border transition-all duration-200 active:scale-[0.98] ${
+              isToday
+                ? `${c.gradient} ${c.border} ${c.hoverBorder} ${c.glow}`
+                : `${c.dimGradient} ${c.dimBorder} ${c.hoverBorder}`
             }`}
           >
             {isToday && (
-              <span className="absolute top-2 end-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+              <span className="absolute top-2 end-2 text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-sm">
                 {t.today}
               </span>
             )}
-            <div className="text-2xl mb-2">{DAY_ICONS[day.day_number]}</div>
+            <div className="text-3xl mb-3">{DAY_ICONS[day.day_number]}</div>
             <p className="text-xs text-gray-500 mb-0.5">{t.day} {day.day_number}</p>
             <p className="text-sm font-bold text-white leading-tight">{dayName}</p>
             <p className="text-xs text-gray-500 mt-1">{day.duration_text} {t.min}</p>
 
             {isToday && mainCount > 0 && (
               <div className="mt-3">
-                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${todayPct === 100 ? "bg-green-500" : "bg-blue-500"}`}
                     style={{ width: `${todayPct}%` }}

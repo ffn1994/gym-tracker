@@ -169,7 +169,7 @@ export function DashboardClient({
         ) : (
           <button
             onClick={() => setConfirmReset(true)}
-            className="text-xs text-gray-700 hover:text-red-500 transition px-2 py-1 rounded-lg hover:bg-gray-900"
+            className="text-xs text-gray-600 hover:text-red-400 transition px-2 py-1 rounded-lg hover:bg-gray-900"
           >
             🗑️ {isEn ? "Reset all" : "مسح الكل"}
           </button>
@@ -178,7 +178,7 @@ export function DashboardClient({
 
       {/* Tab bar */}
       <div className="flex items-center justify-center mb-6">
-        <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
+        <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 shadow-lg">
           <TabBtn active={tab === "program"} onClick={() => setTab("program")}>{t.tabProgram}</TabBtn>
           <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>{t.tabProgress}</TabBtn>
           <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>{t.tabStats}</TabBtn>
@@ -591,7 +591,7 @@ function TabBtn({ active, onClick, children }: {
     <button
       onClick={onClick}
       className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${
-        active ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+        active ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md" : "text-gray-400 hover:text-white hover:bg-gray-800/60"
       }`}
     >
       {children}

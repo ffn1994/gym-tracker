@@ -147,7 +147,7 @@ function Stepper({
     onChange(String(next));
   }
   return (
-    <div className={`flex items-center flex-1 min-w-0 bg-gray-800 rounded-lg overflow-hidden border ${hasError ? "border-red-500" : "border-gray-700"}`}>
+    <div className={`flex items-center flex-1 min-w-0 bg-gray-800 rounded-lg overflow-hidden border ${hasError ? "border-red-500" : "border-gray-700/80"}`}>
       <button
         type="button"
         onClick={() => adjust(-step)}
@@ -243,7 +243,7 @@ function BodyWeightCard({ initialWeight, savedToday, isEn }: {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 flex items-center gap-3">
+    <div className="bg-gradient-to-r from-gray-900 to-gray-900/90 border border-gray-700/60 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
       <span className="text-lg shrink-0">⚖️</span>
       <span className="text-sm font-medium text-gray-300 shrink-0">
         {isEn ? "Body weight" : "وزن الجسم"}
@@ -303,7 +303,7 @@ function SessionNoteCard({ initialNote, programDayId, isEn }: {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+    <div className="bg-gray-900/80 border border-gray-700/60 rounded-2xl p-4 space-y-2 shadow-sm">
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
         📝 {isEn ? "Session Note" : "ملاحظة الجلسة"}
       </p>
@@ -442,16 +442,16 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-3.5">
         <span className="text-sm font-semibold text-white">{exName}</span>
         <div className="flex items-center gap-2">
           {loggedToday && (
             <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
           )}
-          <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
+          <span className="text-xs font-mono text-gray-400 bg-gray-800/80 border border-gray-700/50 px-2 py-0.5 rounded-md">
             {formatTarget(ex)}
           </span>
           <button
@@ -524,7 +524,7 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+      <div className="px-4 py-3 border-t border-gray-800/80 space-y-2 bg-gray-950/40">
 
         {/* Rest timer */}
         {restSeconds !== null && (
@@ -547,7 +547,7 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
               onClick={repeatLast}
               disabled={pending}
               title={isEn ? "Repeat last session" : "كرر آخر جلسة"}
-              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
+              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg bg-gray-800/80 border border-gray-700/60 text-base hover:border-gray-600 hover:bg-gray-700/80 active:bg-gray-700 transition disabled:opacity-50"
             >
               🔄
             </button>
@@ -556,10 +556,10 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
             onClick={submit}
             disabled={pending}
             className={`flex-1 h-9 rounded-lg font-bold text-sm transition ${
-              flash === "pr"  ? "bg-amber-500 text-white" :
-              flash === "ok"  ? "bg-green-600 text-white" :
+              flash === "pr"  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white" :
+              flash === "ok"  ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white" :
               flash === "err" ? "bg-red-600 text-white"   :
-              "bg-blue-600 hover:bg-blue-500 text-white"
+              "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-md shadow-blue-900/30 text-white"
             } disabled:opacity-50`}
           >
             {pending ? "…" : flash === "pr" ? "🏆 رقم قياسي!" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
@@ -724,7 +724,7 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+      <div className="px-4 py-3 border-t border-gray-800/80 space-y-2 bg-gray-950/40">
         {restSeconds !== null && (
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
@@ -736,12 +736,12 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
           {latest && (
             <button onClick={repeatLast} disabled={pending}
               title={isEn ? "Repeat last" : "كرر آخر جلسة"}
-              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
+              className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg bg-gray-800/80 border border-gray-700/60 text-base hover:border-gray-600 hover:bg-gray-700/80 active:bg-gray-700 transition disabled:opacity-50"
             >🔄</button>
           )}
           <button onClick={submit} disabled={pending}
             className={`flex-1 h-9 rounded-lg font-bold text-sm transition ${
-              flash === "ok" ? "bg-green-600 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"
+              flash === "ok" ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-md shadow-blue-900/30 text-white"
             } disabled:opacity-50`}
           >
             {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
@@ -863,7 +863,7 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+      <div className="px-4 py-3 border-t border-gray-800/80 space-y-2 bg-gray-950/40">
         {restSeconds !== null && (
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
@@ -871,13 +871,13 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
           {latest && (
             <button onClick={repeatLast} disabled={pending}
               title={isEn ? "Repeat last" : "كرر آخر جلسة"}
-              className="shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
+              className="shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-gray-800/80 border border-gray-700/60 text-base hover:border-gray-600 hover:bg-gray-700/80 active:bg-gray-700 transition disabled:opacity-50"
             >🔄</button>
           )}
           <Stepper value={rounds} onChange={v => { setRounds(v); setRoundsErr(false); }} step={1} placeholder={isEn ? "Rounds" : "جولات"} hasError={roundsErr} />
           <button onClick={submit} disabled={pending}
             className={`shrink-0 h-10 px-5 rounded-lg font-bold text-sm transition ${
-              flash === "ok" ? "bg-green-600 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"
+              flash === "ok" ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-md shadow-blue-900/30 text-white"
             } disabled:opacity-50`}
           >
             {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
@@ -895,7 +895,7 @@ function SimpleExRow({ ex, isEn }: { ex: ProgramExercise; isEn: boolean }) {
   const name  = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
   const notes = isEn ? (ex.notes_en ?? ex.notes) : ex.notes;
   return (
-    <div className="flex items-start gap-3 py-2.5 cursor-pointer select-none" onClick={() => setChecked(c => !c)}>
+    <div className="flex items-start gap-3 py-2.5 cursor-pointer select-none hover:bg-gray-800/30 rounded-lg px-2 -mx-2 transition" onClick={() => setChecked(c => !c)}>
       <span className={`mt-0.5 text-base shrink-0 transition-opacity ${checked ? "opacity-30" : ""}`}>
         {checked ? "✅" : "○"}
       </span>
@@ -978,7 +978,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
       <div className="flex justify-end items-center gap-3">
         <button
           onClick={() => router.refresh()}
-          className="text-xs text-gray-600 hover:text-gray-400 flex items-center gap-1 transition"
+          className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 transition-colors"
         >
           🔄 {isEn ? "Refresh" : "تحديث"}
         </button>
@@ -991,7 +991,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
         ) : (
           <button
             onClick={() => setConfirmClearAll(true)}
-            className="text-xs text-gray-700 hover:text-red-500 flex items-center gap-1 transition"
+            className="text-xs text-gray-600 hover:text-red-400 flex items-center gap-1 transition-colors"
           >
             🗑️ {isEn ? "Clear all" : "مسح الكل"}
           </button>
@@ -999,7 +999,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
       </div>
 
       {/* Day header */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div className="bg-gradient-to-br from-gray-800/80 to-gray-900 border border-gray-700/60 rounded-2xl p-5 shadow-lg">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -1025,7 +1025,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
               <span>{doneToday.length} / {mainExercises.length} {t.exercisesLogged}</span>
             </div>
             <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : "bg-blue-500"}`} style={{ width: `${pct}%` }} />
+              <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : "bg-gradient-to-r from-blue-500 to-blue-400"}`} style={{ width: `${pct}%` }} />
             </div>
           </div>
         )}
