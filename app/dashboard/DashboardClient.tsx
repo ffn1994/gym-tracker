@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { WorkoutCard } from "./WorkoutCard";
-import { AddWorkoutModal } from "./AddWorkoutModal";
+import Link from "next/link";
 import { ProgramTab } from "./ProgramTab";
 import { useLang } from "@/app/lang";
-import { LangToggle } from "@/app/LangToggle";
+
+/* ─── Types ─────────────────────────────────────────────── */
 
 type ProgramDay = {
   id: number;
@@ -50,6 +50,55 @@ type Workout = {
   video_url?: string | null;
 };
 
+/* ─── Constants ──────────────────────────────────────────── */
+
+const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: "🚴" };
+const DOW_AR: Record<string, string> = {
+  Saturday: "السبت",
+  Monday: "الاثنين",
+  Wednesday: "الأربعاء",
+  Friday: "الجمعة",
+};
+
+/* ─── Helpers ────────────────────────────────────────────── */
+
+function getExHistory(ex: ProgramExercise, workouts: Workout[]): Workout[] {
+  const ar = ex.exercise_name.toLowerCase().trim();
+  const en = ex.exercise_name_en?.toLowerCase().trim() ?? "";
+  return workouts
+    .filter(w => {
+      const wn = w.exercise_name.toLowerCase().trim();
+      return (
+        wn === ar || wn === en ||
+        (ar && (wn.includes(ar) || ar.includes(wn))) ||
+        (en && (wn.includes(en) || en.includes(wn)))
+      );
+    })
+    .sort((a, b) => a.date.localeCompare(a.date) || a.time.localeCompare(a.time));
+}
+
+function getWeekStart(): string {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split("T")[0];
+}
+
+function dayTrainedThisWeek(
+  day: ProgramDay,
+  programExercises: ProgramExercise[],
+  workouts: Workout[],
+  weekStart: string
+): boolean {
+  const exes = programExercises.filter(
+    e => e.program_day_id === day.id && (e.phase === "main" || e.phase === "core")
+  );
+  return exes.some(ex => getExHistory(ex, workouts).some(w => w.date >= weekStart));
+}
+
+/* ─── Main Component ─────────────────────────────────────── */
+
 export function DashboardClient({
   workouts,
   programDays,
@@ -59,85 +108,32 @@ export function DashboardClient({
   programDays: ProgramDay[];
   programExercises: ProgramExercise[];
 }) {
-  const { t } = useLang();
-  const [tab, setTab] = useState<"workouts" | "progress" | "stats" | "program">("program");
-  const [showAdd, setShowAdd] = useState(false);
-  const [search, setSearch] = useState("");
-  const [muscleFilter, setMuscleFilter] = useState("");
-  const [diffFilter, setDiffFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const { t, lang } = useLang();
+  const isEn = lang === "en";
+  const [tab, setTab] = useState<"program" | "progress" | "stats">("program");
 
-  const muscleGroups = useMemo(
-    () => [...new Set(workouts.map(w => w.muscle_group))].sort(),
-    [workouts]
+  const weekStart = useMemo(getWeekStart, []);
+  const thisWeekWorkouts = useMemo(
+    () => workouts.filter(w => w.date >= weekStart),
+    [workouts, weekStart]
   );
-
-  const filtered = useMemo(() => {
-    return workouts.filter(w => {
-      const matchSearch = !search || w.exercise_name.toLowerCase().includes(search.toLowerCase());
-      const matchMuscle = !muscleFilter || w.muscle_group === muscleFilter;
-      const matchDiff = !diffFilter || w.difficulty_level === diffFilter;
-      const matchFrom = !dateFrom || w.date >= dateFrom;
-      const matchTo = !dateTo || w.date <= dateTo;
-      return matchSearch && matchMuscle && matchDiff && matchFrom && matchTo;
-    });
-  }, [workouts, search, muscleFilter, diffFilter, dateFrom, dateTo]);
-
-  const progress = useMemo(() => {
-    const map: Record<string, Workout[]> = {};
-    [...workouts].sort((a, b) => a.date.localeCompare(b.date)).forEach(w => {
-      if (!map[w.exercise_name]) map[w.exercise_name] = [];
-      map[w.exercise_name].push(w);
-    });
-    return Object.entries(map).map(([name, sessions]) => {
-      const weights = sessions.map(s => Number(s.weight_kg));
-      const first = weights[0];
-      const latest = weights[weights.length - 1];
-      const best = Math.max(...weights);
-      return { name, muscle_group: sessions[0].muscle_group, sessions: sessions.length, first, latest, best, gained: latest - first, history: sessions };
-    }).sort((a, b) => b.sessions - a.sessions);
-  }, [workouts]);
-
-  const stats = useMemo(() => {
-    if (workouts.length === 0) return null;
-    const muscleCounts: Record<string, number> = {};
-    workouts.forEach(w => { muscleCounts[w.muscle_group] = (muscleCounts[w.muscle_group] || 0) + 1; });
-    const topMuscle = Object.entries(muscleCounts).sort((a, b) => b[1] - a[1])[0];
-    const heaviest = workouts.reduce((max, w) => Number(w.weight_kg) > Number(max.weight_kg) ? w : max, workouts[0]);
-    const totalVolume = workouts.reduce((sum, w) => sum + Number(w.weight_kg) * w.sets * w.reps, 0);
-    const uniqueExercises = new Set(workouts.map(w => w.exercise_name)).size;
-    const diffCounts = { Easy: 0, Medium: 0, Hard: 0 } as Record<string, number>;
-    workouts.forEach(w => { if (w.difficulty_level in diffCounts) diffCounts[w.difficulty_level]++; });
-    const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    const thisWeek = workouts.filter(w => new Date(w.date) >= weekStart).length;
-    return { topMuscle, heaviest, totalVolume, uniqueExercises, diffCounts, thisWeek };
-  }, [workouts]);
-
-  const hasFilters = search || muscleFilter || diffFilter || dateFrom || dateTo;
+  const daysDoneThisWeek = useMemo(
+    () => programDays.filter(d => dayTrainedThisWeek(d, programExercises, workouts, weekStart)).length,
+    [programDays, programExercises, workouts, weekStart]
+  );
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+      {/* Tab bar */}
+      <div className="flex items-center justify-center mb-6">
         <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
           <TabBtn active={tab === "program"} onClick={() => setTab("program")}>{t.tabProgram}</TabBtn>
-          <TabBtn active={tab === "workouts"} onClick={() => setTab("workouts")}>{t.tabWorkouts}</TabBtn>
           <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>{t.tabProgress}</TabBtn>
           <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>{t.tabStats}</TabBtn>
         </div>
-        <div className="flex items-center gap-2">
-          <LangToggle />
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition"
-          >
-            {t.logWorkout}
-          </button>
-        </div>
       </div>
 
-      {/* PROGRAM TAB */}
+      {/* ── PROGRAM TAB ── */}
       {tab === "program" && (
         <ProgramTab
           programDays={programDays}
@@ -146,211 +142,293 @@ export function DashboardClient({
         />
       )}
 
-      {/* WORKOUTS TAB */}
-      {tab === "workouts" && (
-        <>
-          {workouts.length > 0 && (
-            <div className="flex flex-wrap gap-3 mb-5">
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder={t.searchPlaceholder}
-                className="flex-1 min-w-[160px] px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <select
-                value={muscleFilter}
-                onChange={e => setMuscleFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">{t.allMuscles}</option>
-                {muscleGroups.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <select
-                value={diffFilter}
-                onChange={e => setDiffFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">{t.allLevels}</option>
-                <option value="Easy">{t.easy}</option>
-                <option value="Medium">{t.medium}</option>
-                <option value="Hard">{t.hard}</option>
-              </select>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              {hasFilters && (
-                <button onClick={() => { setSearch(""); setMuscleFilter(""); setDiffFilter(""); setDateFrom(""); setDateTo(""); }} className="px-3 py-2 text-sm text-gray-400 hover:text-white transition">
-                  {t.clearFilters}
-                </button>
-              )}
-            </div>
-          )}
-          {filtered.length > 0 ? (
-            <>
-              {hasFilters && <p className="text-xs text-gray-500 mb-3">{filtered.length} {t.of} {workouts.length} {t.workoutsCount}</p>}
-              <div className="grid gap-4">{filtered.map(w => <WorkoutCard key={w.id} w={w} />)}</div>
-            </>
-          ) : workouts.length === 0 ? (
-            <EmptyState onAdd={() => setShowAdd(true)} />
-          ) : (
-            <div className="text-center py-16 text-gray-600">
-              <p className="text-lg">{t.noMatchFilters}</p>
-              <button onClick={() => { setSearch(""); setMuscleFilter(""); setDiffFilter(""); }} className="mt-2 text-sm text-blue-400 hover:text-blue-300 transition">
-                {t.clearFiltersLink}
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* PROGRESS TAB */}
+      {/* ── PROGRESS TAB ── */}
       {tab === "progress" && (
-        progress.length === 0 ? <EmptyState onAdd={() => setShowAdd(true)} /> : (
-          <div className="grid gap-4">
-            {progress.map(ex => (
-              <div key={ex.name} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className="text-base font-semibold text-white">{ex.name}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{ex.muscle_group} · {ex.sessions} {t.sessions}</p>
-                  </div>
-                  <TrendBadge gained={ex.gained} />
-                </div>
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <StatBox label={t.startingWeight} value={`${ex.first} kg`} />
-                  <StatBox label={t.bestWeight} value={`${ex.best} kg`} highlight />
-                  <StatBox label={t.latestWeight} value={`${ex.latest} kg`} />
-                </div>
-                {ex.sessions > 1 && (
-                  <div className="border-t border-gray-800 pt-3">
-                    <p className="text-xs text-gray-500 mb-2">{t.sessionHistory}</p>
-                    <div className="space-y-1.5">
-                      {ex.history.map(s => (
-                        <div key={s.id} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-400">{s.date}</span>
-                          <div className="flex items-center gap-3 text-gray-300">
-                            <span>{s.sets}×{s.reps}</span>
-                            <span className="font-semibold text-white w-16 text-end">{s.weight_kg} kg</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )
+        <ProgressTab
+          programDays={programDays}
+          programExercises={programExercises}
+          workouts={workouts}
+          isEn={isEn}
+        />
       )}
 
-      {/* STATS TAB */}
+      {/* ── STATS TAB ── */}
       {tab === "stats" && (
-        !stats ? <EmptyState onAdd={() => setShowAdd(true)} /> : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <BigStat icon="📋" label={t.totalSessions} value={String(workouts.length)} />
-              <BigStat icon="📅" label={t.thisWeek} value={String(stats.thisWeek)} />
-              <BigStat icon="💪" label={t.totalExercises} value={String(stats.uniqueExercises)} />
-              <BigStat icon="🏆" label={t.topMuscle} value={stats.topMuscle[0]} sub={`${stats.topMuscle[1]} ${t.sessions}`} />
-              <BigStat icon="⚡" label={t.heaviestLift} value={`${stats.heaviest.weight_kg} kg`} sub={stats.heaviest.exercise_name} />
-              <BigStat icon="📦" label={t.totalVolume} value={`${(stats.totalVolume / 1000).toFixed(1)}t`} sub={t.kgLiftedTotal} />
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">{t.difficultyBreakdown}</h3>
-              <div className="space-y-3">
-                {(["Easy", "Medium", "Hard"] as const).map(d => {
-                  const count = stats.diffCounts[d] ?? 0;
-                  const pct = workouts.length ? Math.round((count / workouts.length) * 100) : 0;
-                  const color = d === "Hard" ? "bg-red-500" : d === "Medium" ? "bg-yellow-500" : "bg-green-500";
-                  const label = d === "Hard" ? t.hard : d === "Medium" ? t.medium : t.easy;
-                  return (
-                    <div key={d}>
-                      <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>{label}</span><span>{count} {t.sessions} ({pct}%)</span>
-                      </div>
-                      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">{t.muscleGroupsTitle}</h3>
-              <div className="space-y-3">
-                {Object.entries(
-                  workouts.reduce((acc, w) => { acc[w.muscle_group] = (acc[w.muscle_group] || 0) + 1; return acc; }, {} as Record<string, number>)
-                ).sort((a, b) => b[1] - a[1]).map(([muscle, count]) => {
-                  const pct = Math.round((count / workouts.length) * 100);
-                  return (
-                    <div key={muscle}>
-                      <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>{muscle}</span><span>{count} {t.sessions}</span>
-                      </div>
-                      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )
+        <StatsTab
+          programDays={programDays}
+          programExercises={programExercises}
+          workouts={workouts}
+          thisWeekWorkouts={thisWeekWorkouts}
+          daysDoneThisWeek={daysDoneThisWeek}
+          weekStart={weekStart}
+          isEn={isEn}
+        />
       )}
-
-      {showAdd && <AddWorkoutModal onClose={() => setShowAdd(false)} />}
     </>
   );
 }
 
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+/* ─── Progress Tab ───────────────────────────────────────── */
+
+function ProgressTab({
+  programDays, programExercises, workouts, isEn,
+}: {
+  programDays: ProgramDay[];
+  programExercises: ProgramExercise[];
+  workouts: Workout[];
+  isEn: boolean;
+}) {
+  if (workouts.length === 0) {
+    return (
+      <div className="text-center py-20 text-gray-600">
+        <div className="text-5xl mb-3">📊</div>
+        <p className="text-base font-medium text-gray-400">
+          {isEn ? "Log workouts to see progress" : "سجّل تمارينك لتظهر هنا"}
+        </p>
+        <p className="text-sm mt-1">
+          {isEn ? "Open a program day and start logging" : "افتح يوم من البرنامج وابدأ"}
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <button onClick={onClick} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${active ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>
+    <div className="space-y-6">
+      {programDays.map(day => {
+        const dayExes = programExercises.filter(
+          e => e.program_day_id === day.id && (e.phase === "main" || e.phase === "core")
+        );
+        const withData = dayExes.filter(ex => getExHistory(ex, workouts).length > 0);
+        if (withData.length === 0) return null;
+
+        const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
+
+        return (
+          <div key={day.id}>
+            <Link
+              href={`/dashboard/program/${day.id}`}
+              className="flex items-center gap-2 mb-3 group"
+            >
+              <span className="text-xl">{DAY_ICONS[day.day_number]}</span>
+              <span className="text-sm font-bold text-white group-hover:text-blue-400 transition">
+                {dayName}
+              </span>
+              <span className="ms-auto text-xs text-gray-600 group-hover:text-blue-400 transition">
+                {isEn ? "Open →" : "فتح →"}
+              </span>
+            </Link>
+
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              {withData.map((ex, idx) => {
+                const hist = getExHistory(ex, workouts);
+                const firstW = Number(hist[0].weight_kg);
+                const latestW = Number(hist[hist.length - 1].weight_kg);
+                const gain = latestW - firstW;
+                const isTimed = ex.duration_seconds !== null && ex.reps_min === null;
+                const exName = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
+                const lastEntry = hist[hist.length - 1];
+
+                return (
+                  <div
+                    key={ex.id}
+                    className={`flex items-center gap-4 px-4 py-3.5 ${
+                      idx < withData.length - 1 ? "border-b border-gray-800/60" : ""
+                    }`}
+                  >
+                    {/* Progress bar background */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{exName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {hist.length} {isEn ? (hist.length === 1 ? "session" : "sessions") : "جلسة"}
+                        {!isTimed && hist.length > 1 && (
+                          <span className="text-gray-600"> · {firstW} → {latestW} kg</span>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 text-end">
+                      {!isTimed ? (
+                        <>
+                          <p className="text-base font-bold text-white">{latestW} kg</p>
+                          {hist.length > 1 && gain !== 0 && (
+                            <p className={`text-xs font-semibold ${gain > 0 ? "text-green-400" : "text-red-400"}`}>
+                              {gain > 0 ? `↑ +${gain}` : `↓ ${gain}`} kg
+                            </p>
+                          )}
+                          {hist.length > 1 && gain === 0 && (
+                            <p className="text-xs text-gray-600">—</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-base font-bold text-white">{lastEntry.reps}s</p>
+                          <p className="text-xs text-gray-500">{lastEntry.sets} sets</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Stats Tab ──────────────────────────────────────────── */
+
+function StatsTab({
+  programDays, programExercises, workouts,
+  thisWeekWorkouts, daysDoneThisWeek, weekStart, isEn,
+}: {
+  programDays: ProgramDay[];
+  programExercises: ProgramExercise[];
+  workouts: Workout[];
+  thisWeekWorkouts: Workout[];
+  daysDoneThisWeek: number;
+  weekStart: string;
+  isEn: boolean;
+}) {
+  const totalSetsThisWeek = thisWeekWorkouts.reduce((s, w) => s + w.sets, 0);
+
+  const records = programDays.flatMap(day =>
+    programExercises
+      .filter(e => e.program_day_id === day.id && (e.phase === "main" || e.phase === "core"))
+      .map(ex => {
+        const hist = getExHistory(ex, workouts);
+        if (hist.length === 0) return null;
+        const isTimed = ex.duration_seconds !== null && ex.reps_min === null;
+        const weights = hist.map(h => Number(h.weight_kg));
+        const maxW = Math.max(...weights);
+        const firstW = Number(hist[0].weight_kg);
+        const latestW = Number(hist[hist.length - 1].weight_kg);
+        return { ex, day, isTimed, maxW, firstW, latestW, sessions: hist.length };
+      })
+      .filter(Boolean)
+  );
+
+  return (
+    <div className="space-y-5">
+
+      {/* This week grid */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          {isEn ? "This Week" : "هذا الأسبوع"}
+        </h3>
+        <div className="grid grid-cols-4 gap-2">
+          {programDays.map(day => {
+            const done = dayTrainedThisWeek(day, programExercises, workouts, weekStart);
+            const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
+            const dow = isEn ? day.day_of_week.slice(0, 3) : DOW_AR[day.day_of_week] ?? day.day_of_week;
+            return (
+              <Link
+                key={day.id}
+                href={`/dashboard/program/${day.id}`}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition text-center ${
+                  done
+                    ? "border-green-700 bg-green-900/20"
+                    : "border-gray-800 hover:border-gray-700"
+                }`}
+              >
+                <span className="text-xl">{done ? "✅" : DAY_ICONS[day.day_number]}</span>
+                <p className="text-xs font-medium text-white leading-tight">{dayName}</p>
+                <p className="text-xs text-gray-600">{dow}</p>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Week numbers */}
+        <div className="mt-4 pt-4 border-t border-gray-800 grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-2xl font-bold text-white">{daysDoneThisWeek}<span className="text-sm text-gray-500">/4</span></p>
+            <p className="text-xs text-gray-500 mt-0.5">{isEn ? "Days done" : "أيام مكتملة"}</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-white">{totalSetsThisWeek}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{isEn ? "Sets this week" : "مجموعات الأسبوع"}</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-white">{workouts.length}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{isEn ? "Total logs" : "إجمالي التسجيلات"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Records per exercise */}
+      {records.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-800">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              {isEn ? "Personal Records" : "الأرقام القياسية"}
+            </h3>
+          </div>
+          {records.map((r, idx) => {
+            if (!r) return null;
+            const exName = isEn ? (r.ex.exercise_name_en ?? r.ex.exercise_name) : r.ex.exercise_name;
+            const gain = r.latestW - r.firstW;
+            return (
+              <div
+                key={r.ex.id}
+                className={`flex items-center justify-between px-5 py-3.5 ${
+                  idx < records.length - 1 ? "border-b border-gray-800/60" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-base">{DAY_ICONS[r.day.day_number]}</span>
+                  <div>
+                    <p className="text-sm font-medium text-white">{exName}</p>
+                    <p className="text-xs text-gray-600">{r.sessions} {isEn ? "sessions" : "جلسة"}</p>
+                  </div>
+                </div>
+                {!r.isTimed && (
+                  <div className="text-end">
+                    <p className="text-sm font-bold text-white">{r.maxW} kg</p>
+                    {r.sessions > 1 && gain !== 0 && (
+                      <p className={`text-xs font-semibold ${gain > 0 ? "text-green-400" : "text-red-400"}`}>
+                        {gain > 0 ? `+${gain}` : `${gain}`} kg
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {workouts.length === 0 && (
+        <div className="text-center py-12 text-gray-600">
+          <div className="text-4xl mb-3">🏆</div>
+          <p className="text-base font-medium text-gray-400">
+            {isEn ? "No data yet" : "لا يوجد بيانات بعد"}
+          </p>
+          <p className="text-sm mt-1">
+            {isEn ? "Start logging from the program" : "ابدأ التسجيل من صفحة البرنامج"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Tab Button ─────────────────────────────────────────── */
+
+function TabBtn({ active, onClick, children }: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${
+        active ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+      }`}
+    >
       {children}
     </button>
-  );
-}
-
-function StatBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-xl px-3 py-2 ${highlight ? "bg-blue-900/40 border border-blue-800" : "bg-gray-800"}`}>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`text-sm font-semibold ${highlight ? "text-blue-300" : "text-white"}`}>{value}</p>
-    </div>
-  );
-}
-
-function BigStat({ icon, label, value, sub }: { icon: string; label: string; value: string; sub?: string }) {
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-      <div className="text-2xl mb-2">{icon}</div>
-      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-      <p className="text-xl font-bold text-white">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-0.5 truncate">{sub}</p>}
-    </div>
-  );
-}
-
-function TrendBadge({ gained }: { gained: number }) {
-  const { t } = useLang();
-  if (gained > 0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-900/50 text-green-300 border border-green-800">+{gained} kg</span>;
-  if (gained < 0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-900/50 text-red-300 border border-red-800">{gained} kg</span>;
-  return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-700">{t.noChange}</span>;
-}
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  const { t } = useLang();
-  return (
-    <div className="text-center py-20 text-gray-600">
-      <div className="text-5xl mb-4">📋</div>
-      <p className="text-lg font-medium text-gray-400">{t.noWorkoutsTitle}</p>
-      <p className="text-sm mt-1 mb-5">{t.noWorkoutsSubtitle}</p>
-      <button onClick={onAdd} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition">
-        {t.logFirst}
-      </button>
-    </div>
   );
 }
