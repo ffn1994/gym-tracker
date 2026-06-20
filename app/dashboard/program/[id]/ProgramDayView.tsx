@@ -956,9 +956,6 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
   const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
   const dayGoal = isEn ? (day.goal_en ?? day.goal) : day.goal;
 
-  const todayWeekDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()];
-  const isToday = day.day_of_week === todayWeekDay;
-
   const todayStr      = new Date().toISOString().split("T")[0];
   const mainExercises = exercises.filter(e => e.phase === "main" || e.phase === "core");
   const doneToday     = mainExercises.filter(ex => getHistory(ex, workoutHistory).some(h => h.date === todayStr));
@@ -1012,9 +1009,6 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xl">{DAY_ICONS[day.day_number]}</span>
               <span className="text-xs text-gray-500">{t.day} {day.day_number}</span>
-              {isToday && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">{t.today}</span>
-              )}
             </div>
             <h1 className="text-xl font-bold text-white">{dayName}</h1>
             <p className="text-sm text-gray-400 mt-1">{dayGoal}</p>
@@ -1025,7 +1019,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
           </div>
         </div>
 
-        {isToday && mainExercises.length > 0 && (
+        {mainExercises.length > 0 && (
           <div className="mt-4">
             <div className="flex justify-between text-xs text-gray-400 mb-1.5">
               <span>{t.dayProgress}</span>
@@ -1093,7 +1087,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
         </Section>
       )}
 
-      {isToday && pct === 100 && (
+      {pct === 100 && doneToday.length > 0 && (
         <div className="text-center py-4 bg-green-900/20 border border-green-800 rounded-2xl">
           <p className="text-green-400 font-semibold">{t.completedToday}</p>
         </div>
