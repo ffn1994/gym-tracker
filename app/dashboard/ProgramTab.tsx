@@ -7,9 +7,11 @@ type ProgramDay = {
   id: number;
   day_number: number;
   day_name: string;
+  day_name_en: string | null;
   day_of_week: string;
   duration_text: string;
   goal: string;
+  goal_en: string | null;
 };
 
 type ProgramExercise = {
@@ -17,12 +19,14 @@ type ProgramExercise = {
   program_day_id: number;
   phase: string;
   exercise_name: string;
+  exercise_name_en: string | null;
   muscle_group: string | null;
   sets: number | null;
   reps_min: number | null;
   reps_max: number | null;
   duration_seconds: number | null;
   notes: string | null;
+  notes_en: string | null;
   order_index: number;
 };
 
@@ -44,17 +48,17 @@ const DAY_JS_TO_WEEK: Record<number, string> = {
 const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: "🚴" };
 
 const DAY_COLORS: Record<number, { active: string }> = {
-  1: { active: "border-blue-500 bg-blue-900/20" },
-  2: { active: "border-green-500 bg-green-900/20" },
-  3: { active: "border-orange-500 bg-orange-900/20" },
-  4: { active: "border-purple-500 bg-purple-900/20" },
+  1: { active: "border-blue-500 bg-blue-900/20"   },
+  2: { active: "border-green-500 bg-green-900/20"  },
+  3: { active: "border-orange-500 bg-orange-900/20"},
+  4: { active: "border-purple-500 bg-purple-900/20"},
 };
 
-function findMatch(name: string, workouts: WorkoutSummary[]) {
-  const n = name.toLowerCase().trim();
+function findMatch(ar: string, en: string | null, workouts: WorkoutSummary[]) {
+  const names = [ar.toLowerCase().trim(), en?.toLowerCase().trim() ?? ""].filter(Boolean);
   return workouts.find(w => {
     const wn = w.exercise_name.toLowerCase().trim();
-    return wn === n || wn.includes(n) || n.includes(wn);
+    return names.some(n => wn === n || wn.includes(n) || n.includes(wn));
   });
 }
 
@@ -67,7 +71,8 @@ export function ProgramTab({
   programExercises: ProgramExercise[];
   workouts: WorkoutSummary[];
 }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
+  const isEn = lang === "en";
   const todayWeekDay = DAY_JS_TO_WEEK[new Date().getDay()];
   const todayStr = new Date().toISOString().split("T")[0];
   const todayWorkouts = workouts.filter(w => w.date === todayStr);
@@ -85,6 +90,7 @@ export function ProgramTab({
       {programDays.map(day => {
         const isToday = day.day_of_week === todayWeekDay;
         const c = DAY_COLORS[day.day_number];
+        const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
 
         let doneCount = 0, mainCount = 0, todayPct = 0;
         if (isToday) {
@@ -92,7 +98,7 @@ export function ProgramTab({
             e => e.program_day_id === day.id && (e.phase === "main" || e.phase === "core")
           );
           mainCount = mainExs.length;
-          doneCount = mainExs.filter(ex => findMatch(ex.exercise_name, todayWorkouts)).length;
+          doneCount = mainExs.filter(ex => findMatch(ex.exercise_name, ex.exercise_name_en, todayWorkouts)).length;
           todayPct = mainCount > 0 ? Math.round((doneCount / mainCount) * 100) : 0;
         }
 
@@ -111,7 +117,7 @@ export function ProgramTab({
             )}
             <div className="text-2xl mb-2">{DAY_ICONS[day.day_number]}</div>
             <p className="text-xs text-gray-500 mb-0.5">{t.day} {day.day_number}</p>
-            <p className="text-sm font-bold text-white leading-tight">{day.day_name}</p>
+            <p className="text-sm font-bold text-white leading-tight">{dayName}</p>
             <p className="text-xs text-gray-500 mt-1">{day.duration_text} {t.min}</p>
 
             {isToday && mainCount > 0 && (

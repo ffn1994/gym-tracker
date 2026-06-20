@@ -11,9 +11,11 @@ type ProgramDay = {
   id: number;
   day_number: number;
   day_name: string;
+  day_name_en: string | null;
   day_of_week: string;
   duration_text: string;
   goal: string;
+  goal_en: string | null;
 };
 
 type ProgramExercise = {
@@ -21,12 +23,14 @@ type ProgramExercise = {
   program_day_id: number;
   phase: string;
   exercise_name: string;
+  exercise_name_en: string | null;
   muscle_group: string | null;
   sets: number | null;
   reps_min: number | null;
   reps_max: number | null;
   duration_seconds: number | null;
   notes: string | null;
+  notes_en: string | null;
   order_index: number;
 };
 

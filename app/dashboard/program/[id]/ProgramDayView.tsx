@@ -8,9 +8,11 @@ type ProgramDay = {
   id: number;
   day_number: number;
   day_name: string;
+  day_name_en: string | null;
   day_of_week: string;
   duration_text: string;
   goal: string;
+  goal_en: string | null;
 };
 
 type ProgramExercise = {
@@ -18,12 +20,14 @@ type ProgramExercise = {
   program_day_id: number;
   phase: string;
   exercise_name: string;
+  exercise_name_en: string | null;
   muscle_group: string | null;
   sets: number | null;
   reps_min: number | null;
   reps_max: number | null;
   duration_seconds: number | null;
   notes: string | null;
+  notes_en: string | null;
   order_index: number;
 };
 
@@ -39,10 +43,10 @@ const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: 
 
 const PHASE_STYLE: Record<string, { border: string; bg: string; title: string }> = {
   warmup:   { border: "border-yellow-800", bg: "bg-yellow-900/10", title: "text-yellow-400" },
-  main:     { border: "border-blue-800",   bg: "bg-blue-900/10",   title: "text-blue-400" },
+  main:     { border: "border-blue-800",   bg: "bg-blue-900/10",   title: "text-blue-400"   },
   core:     { border: "border-purple-800", bg: "bg-purple-900/10", title: "text-purple-400" },
   finisher: { border: "border-orange-800", bg: "bg-orange-900/10", title: "text-orange-400" },
-  cooldown: { border: "border-green-800",  bg: "bg-green-900/10",  title: "text-green-400" },
+  cooldown: { border: "border-green-800",  bg: "bg-green-900/10",  title: "text-green-400"  },
 };
 
 function formatTarget(ex: ProgramExercise): string {
@@ -55,15 +59,15 @@ function formatTarget(ex: ProgramExercise): string {
   return parts.join("") || "—";
 }
 
-function findMatch(name: string, workouts: WorkoutSummary[]) {
-  const n = name.toLowerCase().trim();
+function findMatch(ar: string, en: string | null, workouts: WorkoutSummary[]) {
+  const names = [ar.toLowerCase().trim(), en?.toLowerCase().trim() ?? ""].filter(Boolean);
   return workouts.find(w => {
     const wn = w.exercise_name.toLowerCase().trim();
-    return wn === n || wn.includes(n) || n.includes(wn);
+    return names.some(n => wn === n || wn.includes(n) || n.includes(wn));
   });
 }
 
-function getFeedback(ex: ProgramExercise, w: WorkoutSummary, t: ReturnType<typeof useLang>["t"]) {
+function getFeedback(ex: ProgramExercise, w: WorkoutSummary) {
   const msgs: { text: string; level: "warn" | "error" | "tip" }[] = [];
   if (ex.sets && w.sets < ex.sets)
     msgs.push({ text: `${w.sets} / ${ex.sets} sets`, level: "error" });
@@ -72,7 +76,7 @@ function getFeedback(ex: ProgramExercise, w: WorkoutSummary, t: ReturnType<typeo
   if (ex.reps_min !== null && w.reps < ex.reps_min)
     msgs.push({ text: `${w.reps} < ${ex.reps_min} reps`, level: "error" });
   else if (ex.reps_max !== null && w.reps > ex.reps_max + 2)
-    msgs.push({ text: `${w.reps} reps — weight too light`, level: "tip" });
+    msgs.push({ text: `${w.reps} reps — weight too light, increase it`, level: "tip" });
   return msgs;
 }
 
@@ -81,14 +85,18 @@ export function ProgramDayView({ day, exercises, todayWorkouts }: {
   exercises: ProgramExercise[];
   todayWorkouts: WorkoutSummary[];
 }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const [showAdd, setShowAdd] = useState(false);
+
+  const isEn = lang === "en";
+  const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
+  const dayGoal = isEn ? (day.goal_en ?? day.goal) : day.goal;
 
   const todayWeekDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()];
   const isToday = day.day_of_week === todayWeekDay;
 
   const mainExercises = exercises.filter(e => e.phase === "main" || e.phase === "core");
-  const done = mainExercises.filter(ex => findMatch(ex.exercise_name, todayWorkouts));
+  const done = mainExercises.filter(ex => findMatch(ex.exercise_name, ex.exercise_name_en, todayWorkouts));
   const pct = mainExercises.length > 0 ? Math.round((done.length / mainExercises.length) * 100) : 0;
 
   const phases = ["warmup", "main", "core", "finisher", "cooldown"];
@@ -108,8 +116,8 @@ export function ProgramDayView({ day, exercises, todayWorkouts }: {
                 </span>
               )}
             </div>
-            <h1 className="text-xl font-bold text-white">{day.day_name}</h1>
-            <p className="text-sm text-gray-400 mt-1">{day.goal}</p>
+            <h1 className="text-xl font-bold text-white">{dayName}</h1>
+            <p className="text-sm text-gray-400 mt-1">{dayGoal}</p>
           </div>
           <div className="shrink-0 bg-gray-800 rounded-xl px-3 py-2 text-center">
             <p className="text-xs text-gray-500">{t.duration}</p>
@@ -147,8 +155,10 @@ export function ProgramDayView({ day, exercises, todayWorkouts }: {
             </h2>
             <div className="space-y-4">
               {list.map(ex => {
-                const match = isTracked ? findMatch(ex.exercise_name, todayWorkouts) : undefined;
-                const feedback = match ? getFeedback(ex, match, t) : [];
+                const exName  = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
+                const exNotes = isEn ? (ex.notes_en ?? ex.notes) : ex.notes;
+                const match   = isTracked ? findMatch(ex.exercise_name, ex.exercise_name_en, todayWorkouts) : undefined;
+                const feedback = match ? getFeedback(ex, match) : [];
                 const hasError = feedback.some(f => f.level === "error");
                 const icon = match ? (hasError ? "❌" : feedback.length > 0 ? "⚠️" : "✅") : "•";
 
@@ -157,7 +167,7 @@ export function ProgramDayView({ day, exercises, todayWorkouts }: {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span className="shrink-0">{isTracked ? icon : "•"}</span>
-                        <span className="text-sm font-semibold text-white">{ex.exercise_name}</span>
+                        <span className="text-sm font-semibold text-white">{exName}</span>
                         {ex.muscle_group && (
                           <span className="text-xs text-gray-600 hidden sm:block">({ex.muscle_group})</span>
                         )}
@@ -167,8 +177,8 @@ export function ProgramDayView({ day, exercises, todayWorkouts }: {
                       </span>
                     </div>
 
-                    {ex.notes && (
-                      <p className="text-xs text-gray-500 ps-5">{ex.notes}</p>
+                    {exNotes && (
+                      <p className="text-xs text-gray-500 ps-5">{exNotes}</p>
                     )}
 
                     {match && feedback.length === 0 && (
