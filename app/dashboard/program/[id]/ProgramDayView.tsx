@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useLang } from "@/app/lang";
-import { logExercise, logBodyWeight, saveSessionNote } from "./actions";
+import { logExercise, logBodyWeight, saveSessionNote, deleteAllWorkouts, deleteExerciseHistory } from "./actions";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 
@@ -403,6 +404,16 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
     doLog(Number(latest.weight_kg), latest.sets, latest.reps);
   }
 
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delPending, startDelTransition] = useTransition();
+
+  function handleDelete() {
+    startDelTransition(async () => {
+      await deleteExerciseHistory([ex.exercise_name, ex.exercise_name_en ?? ""].filter(Boolean));
+      setConfirmDel(false);
+    });
+  }
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
 
@@ -416,6 +427,16 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
           <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
             {formatTarget(ex)}
           </span>
+          {history.length > 0 && (
+            confirmDel ? (
+              <div className="flex items-center gap-1">
+                <button onClick={handleDelete} disabled={delPending} className="text-xs text-red-400 font-bold hover:text-red-300">✓</button>
+                <button onClick={() => setConfirmDel(false)} className="text-xs text-gray-500 hover:text-gray-300">✗</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDel(true)} className="text-gray-700 hover:text-red-500 text-sm leading-none transition">🗑️</button>
+            )
+          )}
         </div>
       </div>
 
@@ -579,6 +600,15 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
   }
   function repeatLast() { if (latest) doLog(latest.sets, latest.reps); }
 
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delPending, startDelTransition] = useTransition();
+  function handleDelete() {
+    startDelTransition(async () => {
+      await deleteExerciseHistory([selected.exercise_name, selected.exercise_name_en ?? ""].filter(Boolean));
+      setConfirmDel(false);
+    });
+  }
+
   const rawNote    = isEn ? (selected.notes_en ?? selected.notes) : selected.notes;
   const displayNote = rawNote?.replace(/\s*[—–-]\s*(pick one of the three|اختر واحد[^.،]*)\.?/gi, "").trim();
 
@@ -590,9 +620,19 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
           {isEn ? "Choose one" : "اختر نوع التمرين"}
         </span>
-        {loggedToday && (
-          <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
-        )}
+        <div className="flex items-center gap-2">
+          {loggedToday && <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>}
+          {history.length > 0 && (
+            confirmDel ? (
+              <div className="flex items-center gap-1">
+                <button onClick={handleDelete} disabled={delPending} className="text-xs text-red-400 font-bold hover:text-red-300">✓</button>
+                <button onClick={() => setConfirmDel(false)} className="text-xs text-gray-500 hover:text-gray-300">✗</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDel(true)} className="text-gray-700 hover:text-red-500 text-sm leading-none transition">🗑️</button>
+            )
+          )}
+        </div>
       </div>
 
       {/* Selector tabs */}
@@ -717,6 +757,16 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
   }
   function repeatLast() { if (latest) doLog(latest.sets); }
 
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delPending, startDelTransition] = useTransition();
+  function handleDelete() {
+    startDelTransition(async () => {
+      const allNames = exercises.flatMap(ex => [ex.exercise_name, ex.exercise_name_en ?? ""]).filter(Boolean);
+      await deleteExerciseHistory(allNames);
+      setConfirmDel(false);
+    });
+  }
+
   const ICONS = ["🏃", "🚶"];
 
   return (
@@ -733,6 +783,16 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
                 <div className="flex items-center gap-2 shrink-0">
                   {loggedToday && <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>}
                   <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">{primary.sets}×</span>
+                  {history.length > 0 && (
+                    confirmDel ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={handleDelete} disabled={delPending} className="text-xs text-red-400 font-bold">✓</button>
+                        <button onClick={() => setConfirmDel(false)} className="text-xs text-gray-500">✗</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDel(true)} className="text-gray-700 hover:text-red-500 text-sm leading-none transition">🗑️</button>
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -829,6 +889,18 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 }) {
   const { lang, t } = useLang();
   const isEn = lang === "en";
+  const router = useRouter();
+
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [clearingAll, startClearAll] = useTransition();
+
+  function handleClearAll() {
+    startClearAll(async () => {
+      await deleteAllWorkouts();
+      setConfirmClearAll(false);
+      router.refresh();
+    });
+  }
 
   const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
   const dayGoal = isEn ? (day.goal_en ?? day.goal) : day.goal;
@@ -857,6 +929,30 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
   return (
     <div className="space-y-6">
+
+      {/* Top action bar */}
+      <div className="flex justify-end items-center gap-3">
+        <button
+          onClick={() => router.refresh()}
+          className="text-xs text-gray-600 hover:text-gray-400 flex items-center gap-1 transition"
+        >
+          🔄 {isEn ? "Refresh" : "تحديث"}
+        </button>
+        {confirmClearAll ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-red-400">{isEn ? "Delete all logs?" : "مسح كل السجل؟"}</span>
+            <button onClick={handleClearAll} disabled={clearingAll} className="text-xs text-red-400 font-bold hover:text-red-300">✓</button>
+            <button onClick={() => setConfirmClearAll(false)} className="text-xs text-gray-500 hover:text-gray-300">✗</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmClearAll(true)}
+            className="text-xs text-gray-700 hover:text-red-500 flex items-center gap-1 transition"
+          >
+            🗑️ {isEn ? "Clear all" : "مسح الكل"}
+          </button>
+        )}
+      </div>
 
       {/* Day header */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">

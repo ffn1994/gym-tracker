@@ -54,6 +54,36 @@ export async function logBodyWeight(weight_kg: number) {
   revalidatePath("/dashboard");
 }
 
+export async function deleteAllWorkouts() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase.from("workouts").delete().eq("user_id", user.id);
+  if (error) throw error;
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/program/1");
+  revalidatePath("/dashboard/program/2");
+  revalidatePath("/dashboard/program/3");
+  revalidatePath("/dashboard/program/4");
+}
+
+export async function deleteExerciseHistory(names: string[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase
+    .from("workouts")
+    .delete()
+    .eq("user_id", user.id)
+    .in("exercise_name", names.filter(Boolean));
+
+  if (error) throw error;
+  revalidatePath("/dashboard");
+}
+
 export async function saveSessionNote(data: { program_day_id: number; note: string }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
