@@ -3,7 +3,7 @@ import "./globals.css";
 import { LanguageProvider } from "./lang";
 
 export const metadata: Metadata = {
-  title: "Gym Tracker",
+  title: "Hybrid Athlete",
   description: "Track your workouts and progress",
 };
 

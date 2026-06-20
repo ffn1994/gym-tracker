@@ -21,7 +21,7 @@ export default async function ProfilePage() {
     <div className="min-h-screen bg-gray-950">
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard" className="text-xl font-bold text-white">🏋️ Gym Tracker</Link>
+          <Link href="/dashboard" className="text-xl font-bold text-white">⚡ Hybrid Athlete</Link>
           <form action="/auth/signout" method="post">
             <button type="submit" className="text-sm text-red-400 hover:text-red-300 transition font-medium">Sign out</button>
           </form>

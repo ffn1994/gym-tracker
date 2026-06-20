@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-gray-950">
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <span className="text-xl font-bold text-white">🏋️ Gym Tracker</span>
+          <span className="text-xl font-bold text-white">⚡ Hybrid Athlete</span>
           <div className="flex items-center gap-3">
             <LangToggle />
             <Link href="/profile" className="text-sm text-gray-400 hover:text-white transition hidden sm:block">
