@@ -65,6 +65,22 @@ export const T = {
     logTodayWorkout: "+ سجّل تمرين",
     completedToday: "🎉 أكملت تمرين اليوم — عمل ممتاز!",
 
+    // Tracker
+    loggedToday: "مسجّل اليوم",
+    noHistory: "لا يوجد سجل بعد — كن الأول!",
+    logEntry: "سجّل",
+    sets: "مج",
+    reps: "تكر",
+    seconds: "ث",
+    weightKg: "كيلو",
+    warmupTitle: "الإحماء",
+    finisherTitle: "الخاتمة",
+    cooldownTitle: "التهدئة",
+    mainTitle: "التمارين الرئيسية",
+    coreTitle: "الكور",
+    progressionTitle: "التدرج الأسبوعي",
+    weekLabel: "أ",
+
     phases: {
       warmup: "الإحماء",
       main: "التمرين الأساسي",
@@ -158,6 +174,22 @@ export const T = {
     progressionNotes: "Progression Notes",
     logTodayWorkout: "+ Log Workout",
     completedToday: "🎉 Completed today's workout — great job!",
+
+    // Tracker
+    loggedToday: "Logged today",
+    noHistory: "No history yet — be the first!",
+    logEntry: "Log",
+    sets: "Sets",
+    reps: "Reps",
+    seconds: "Sec",
+    weightKg: "kg",
+    warmupTitle: "Warm-up",
+    finisherTitle: "Finisher",
+    cooldownTitle: "Cool-down",
+    mainTitle: "Main Workout",
+    coreTitle: "Core",
+    progressionTitle: "Weekly Progression",
+    weekLabel: "W",
 
     phases: {
       warmup: "Warm-up",

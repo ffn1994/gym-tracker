@@ -24,11 +24,19 @@ export default async function ProgramDayPage({ params }: { params: Promise<{ id:
     .eq("program_day_id", id)
     .order("order_index");
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const { data: todayWorkouts } = await supabase
-    .from("workouts")
-    .select("exercise_name, sets, reps, weight_kg, date")
-    .eq("date", todayStr);
+  // Fetch ALL historical workouts for exercises in this day (both AR + EN names)
+  const namesAr = (exercises ?? []).map(e => e.exercise_name);
+  const namesEn = (exercises ?? []).map(e => e.exercise_name_en).filter(Boolean) as string[];
+  const allNames = [...new Set([...namesAr, ...namesEn])];
+
+  const { data: workoutHistory } = allNames.length > 0
+    ? await supabase
+        .from("workouts")
+        .select("id, exercise_name, weight_kg, sets, reps, date, notes")
+        .in("exercise_name", allNames)
+        .order("date", { ascending: false })
+        .order("time", { ascending: false })
+    : { data: [] };
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -37,7 +45,7 @@ export default async function ProgramDayPage({ params }: { params: Promise<{ id:
         <ProgramDayView
           day={day}
           exercises={exercises ?? []}
-          todayWorkouts={todayWorkouts ?? []}
+          workoutHistory={workoutHistory ?? []}
         />
       </main>
     </div>
