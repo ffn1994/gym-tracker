@@ -56,35 +56,35 @@ const DAY_COLORS: Record<number, {
   dimBorder: string;
 }> = {
   1: {
-    gradient: "bg-gradient-to-br from-blue-700/40 via-blue-900/50 to-[#0b1120]",
+    gradient: "bg-gradient-to-br from-blue-700/40 via-blue-900/50 to-[#1c1c1e]",
     border: "border-blue-600/50",
     hoverBorder: "hover:border-blue-500/70",
     glow: "shadow-[0_0_32px_rgba(59,130,246,0.3)]",
-    dimGradient: "bg-gradient-to-br from-blue-900/50 to-[#0b1120]",
+    dimGradient: "bg-gradient-to-br from-blue-900/50 to-[#1c1c1e]",
     dimBorder: "border-blue-800/40",
   },
   2: {
-    gradient: "bg-gradient-to-br from-emerald-700/40 via-emerald-900/50 to-[#0b1120]",
+    gradient: "bg-gradient-to-br from-emerald-700/40 via-emerald-900/50 to-[#1c1c1e]",
     border: "border-emerald-600/50",
     hoverBorder: "hover:border-emerald-500/70",
     glow: "shadow-[0_0_32px_rgba(16,185,129,0.3)]",
-    dimGradient: "bg-gradient-to-br from-emerald-900/50 to-[#0b1120]",
+    dimGradient: "bg-gradient-to-br from-emerald-900/50 to-[#1c1c1e]",
     dimBorder: "border-emerald-800/40",
   },
   3: {
-    gradient: "bg-gradient-to-br from-orange-700/40 via-orange-900/50 to-[#0b1120]",
+    gradient: "bg-gradient-to-br from-orange-700/40 via-orange-900/50 to-[#1c1c1e]",
     border: "border-orange-600/50",
     hoverBorder: "hover:border-orange-500/70",
     glow: "shadow-[0_0_32px_rgba(249,115,22,0.3)]",
-    dimGradient: "bg-gradient-to-br from-orange-900/50 to-[#0b1120]",
+    dimGradient: "bg-gradient-to-br from-orange-900/50 to-[#1c1c1e]",
     dimBorder: "border-orange-800/40",
   },
   4: {
-    gradient: "bg-gradient-to-br from-violet-700/40 via-violet-900/50 to-[#0b1120]",
+    gradient: "bg-gradient-to-br from-violet-700/40 via-violet-900/50 to-[#1c1c1e]",
     border: "border-violet-600/50",
     hoverBorder: "hover:border-violet-500/70",
     glow: "shadow-[0_0_32px_rgba(139,92,246,0.3)]",
-    dimGradient: "bg-gradient-to-br from-violet-900/50 to-[#0b1120]",
+    dimGradient: "bg-gradient-to-br from-violet-900/50 to-[#1c1c1e]",
     dimBorder: "border-violet-800/40",
   },
 };
