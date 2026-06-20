@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__list_projects",
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__list_tables",
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__apply_migration",
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__execute_sql",
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__get_project_url",
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__get_publishable_keys",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(timeout 8)",
+      "Bash(del \"C:\\\\Users\\\\appap\\\\OneDrive\\\\Desktop\\\\gym claude\\\\middleware.ts\")",
+      "PowerShell(Remove-Item \"C:\\\\Users\\\\appap\\\\OneDrive\\\\Desktop\\\\gym claude\\\\middleware.ts\" -Confirm:$false)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__get_project"
+    ]
+  }
+}
