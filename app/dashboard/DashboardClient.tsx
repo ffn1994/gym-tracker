@@ -183,6 +183,84 @@ export function DashboardClient({
   );
 }
 
+/* ─── Progress Chart ─────────────────────────────────────── */
+
+function ProgressChart({ history }: { history: Workout[] }) {
+  const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+  const weights = sorted.map(d => Number(d.weight_kg));
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = maxW - minW || 5;
+
+  const W = 300, H = 80;
+  const PL = 30, PR = 6, PT = 8, PB = 20;
+  const cW = W - PL - PR, cH = H - PT - PB;
+
+  const pts = sorted.map((d, i) => ({
+    x: PL + (sorted.length === 1 ? cW / 2 : (i / (sorted.length - 1)) * cW),
+    y: PT + cH - ((Number(d.weight_kg) - minW) / range) * cH,
+    date: d.date,
+    w: Number(d.weight_kg),
+  }));
+
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+
+  const n = sorted.length;
+  const labelIdxs = n <= 4
+    ? sorted.map((_, i) => i)
+    : [0, Math.round(n / 4), Math.round(n / 2), Math.round(3 * n / 4), n - 1];
+  const uniqueIdxs = [...new Set(labelIdxs)];
+
+  function fmt(d: string) {
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+
+  const gradId = `pg-${sorted[0]?.date ?? "x"}`;
+
+  return (
+    <div className="mt-2 -mx-1">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 80 }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Grid */}
+        {[0, 0.5, 1].map(f => (
+          <line key={f} x1={PL} y1={PT + cH * (1 - f)} x2={W - PR} y2={PT + cH * (1 - f)} stroke="#1f2937" strokeWidth="1" />
+        ))}
+        {/* Y labels */}
+        <text x={PL - 3} y={PT + 4} textAnchor="end" fontSize="7.5" fill="#6b7280">{maxW}kg</text>
+        {minW !== maxW && (
+          <text x={PL - 3} y={PT + cH + 4} textAnchor="end" fontSize="7.5" fill="#6b7280">{minW}kg</text>
+        )}
+        {/* Area */}
+        <path
+          d={`${line} L${pts[pts.length - 1].x.toFixed(1)} ${PT + cH} L${pts[0].x.toFixed(1)} ${PT + cH} Z`}
+          fill={`url(#${gradId})`}
+        />
+        {/* Line */}
+        <path d={line} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* X date labels */}
+        {uniqueIdxs.map(i => (
+          <text key={i} x={pts[i].x.toFixed(1)} y={H - 3} textAnchor="middle" fontSize="7.5" fill="#6b7280">
+            {fmt(sorted[i].date)}
+          </text>
+        ))}
+        {/* Dots */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)}
+            r={p.w === maxW ? 3.5 : 2}
+            fill={p.w === maxW ? "#f59e0b" : "#3b82f6"}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /* ─── Progress Tab ───────────────────────────────────────── */
 
 function ProgressTab({
@@ -236,8 +314,9 @@ function ProgressTab({
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
               {withData.map((ex, idx) => {
                 const hist = getExHistory(ex, workouts);
-                const firstW = Number(hist[0].weight_kg);
-                const latestW = Number(hist[hist.length - 1].weight_kg);
+                const sorted = [...hist].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+                const firstW = Number(sorted[0].weight_kg);
+                const latestW = Number(sorted[sorted.length - 1].weight_kg);
                 const gain = latestW - firstW;
                 const isTimed = ex.duration_seconds !== null && ex.reps_min === null;
                 const exName = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
@@ -246,41 +325,44 @@ function ProgressTab({
                 return (
                   <div
                     key={ex.id}
-                    className={`flex items-center gap-4 px-4 py-3.5 ${
+                    className={`px-4 py-3.5 ${
                       idx < withData.length - 1 ? "border-b border-gray-800/60" : ""
                     }`}
                   >
-                    {/* Progress bar background */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{exName}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {hist.length} {isEn ? (hist.length === 1 ? "session" : "sessions") : "جلسة"}
-                        {!isTimed && hist.length > 1 && (
-                          <span className="text-gray-600"> · {firstW} → {latestW} kg</span>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{exName}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {hist.length} {isEn ? (hist.length === 1 ? "session" : "sessions") : "جلسة"}
+                          {!isTimed && hist.length > 1 && (
+                            <span className="text-gray-600"> · {firstW} → {latestW} kg</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-end">
+                        {!isTimed ? (
+                          <>
+                            <p className="text-base font-bold text-white">{latestW} kg</p>
+                            {hist.length > 1 && gain !== 0 && (
+                              <p className={`text-xs font-semibold ${gain > 0 ? "text-green-400" : "text-red-400"}`}>
+                                {gain > 0 ? `↑ +${gain}` : `↓ ${gain}`} kg
+                              </p>
+                            )}
+                            {hist.length > 1 && gain === 0 && (
+                              <p className="text-xs text-gray-600">—</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-base font-bold text-white">{lastEntry.reps}s</p>
+                            <p className="text-xs text-gray-500">{lastEntry.sets} sets</p>
+                          </>
                         )}
-                      </p>
+                      </div>
                     </div>
-
-                    <div className="shrink-0 text-end">
-                      {!isTimed ? (
-                        <>
-                          <p className="text-base font-bold text-white">{latestW} kg</p>
-                          {hist.length > 1 && gain !== 0 && (
-                            <p className={`text-xs font-semibold ${gain > 0 ? "text-green-400" : "text-red-400"}`}>
-                              {gain > 0 ? `↑ +${gain}` : `↓ ${gain}`} kg
-                            </p>
-                          )}
-                          {hist.length > 1 && gain === 0 && (
-                            <p className="text-xs text-gray-600">—</p>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-base font-bold text-white">{lastEntry.reps}s</p>
-                          <p className="text-xs text-gray-500">{lastEntry.sets} sets</p>
-                        </>
-                      )}
-                    </div>
+                    {!isTimed && hist.length >= 2 && (
+                      <ProgressChart history={hist} />
+                    )}
                   </div>
                 );
               })}
