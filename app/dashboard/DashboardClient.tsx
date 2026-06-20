@@ -273,28 +273,13 @@ function ProgressTab({
 }) {
   const [openExId, setOpenExId] = useState<number | null>(null);
 
-  if (workouts.length === 0) {
-    return (
-      <div className="text-center py-20 text-gray-600">
-        <div className="text-5xl mb-3">📊</div>
-        <p className="text-base font-medium text-gray-400">
-          {isEn ? "Log workouts to see progress" : "سجّل تمارينك لتظهر هنا"}
-        </p>
-        <p className="text-sm mt-1">
-          {isEn ? "Open a program day and start logging" : "افتح يوم من البرنامج وابدأ"}
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {programDays.map(day => {
-        const dayExes = programExercises.filter(
-          e => e.program_day_id === day.id && (e.phase === "main" || e.phase === "core")
-        );
-        const withData = dayExes.filter(ex => getExHistory(ex, workouts).length > 0);
-        if (withData.length === 0) return null;
+        const dayExes = programExercises
+          .filter(e => e.program_day_id === day.id && (e.phase === "main" || e.phase === "core"))
+          .sort((a, b) => a.order_index - b.order_index);
+        if (dayExes.length === 0) return null;
 
         const dayName = isEn ? (day.day_name_en ?? day.day_name) : day.day_name;
 
@@ -314,24 +299,25 @@ function ProgressTab({
             </Link>
 
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-              {withData.map((ex, idx) => {
+              {dayExes.map((ex, idx) => {
                 const hist = getExHistory(ex, workouts);
                 const sorted = [...hist].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-                const firstW = Number(sorted[0].weight_kg);
-                const latestW = Number(sorted[sorted.length - 1].weight_kg);
+                const hasHistory = hist.length > 0;
+                const firstW = hasHistory ? Number(sorted[0].weight_kg) : 0;
+                const latestW = hasHistory ? Number(sorted[sorted.length - 1].weight_kg) : 0;
                 const gain = latestW - firstW;
                 const isTimed = ex.duration_seconds !== null && ex.reps_min === null;
                 const exName = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
-                const lastEntry = sorted[sorted.length - 1];
+                const lastEntry = hasHistory ? sorted[sorted.length - 1] : null;
                 const hasChart = !isTimed && hist.length >= 2;
                 const isOpen = openExId === ex.id;
 
                 return (
                   <div
                     key={ex.id}
-                    className={idx < withData.length - 1 ? "border-b border-gray-800/60" : ""}
+                    className={idx < dayExes.length - 1 ? "border-b border-gray-800/60" : ""}
                   >
-                    {/* Row — always visible, clickable if chart available */}
+                    {/* Row */}
                     <button
                       onClick={() => hasChart && setOpenExId(isOpen ? null : ex.id)}
                       className={`w-full px-4 py-3.5 flex items-center gap-3 text-start ${
@@ -339,32 +325,46 @@ function ProgressTab({
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{exName}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {hist.length} {isEn ? (hist.length === 1 ? "session" : "sessions") : "جلسة"}
-                          {!isTimed && hist.length > 1 && (
-                            <span className="text-gray-600"> · {firstW} → {latestW} kg</span>
-                          )}
+                        <p className={`text-sm font-semibold truncate ${hasHistory ? "text-white" : "text-gray-500"}`}>
+                          {exName}
                         </p>
+                        {hasHistory ? (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {hist.length} {isEn ? (hist.length === 1 ? "session" : "sessions") : "جلسة"}
+                            {!isTimed && hist.length > 1 && (
+                              <span className="text-gray-600"> · {firstW} → {latestW} kg</span>
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-700 mt-0.5">
+                            {isEn ? "Not logged yet" : "لم تُسجَّل بعد"}
+                          </p>
+                        )}
                       </div>
                       <div className="shrink-0 text-end">
-                        {!isTimed ? (
-                          <>
-                            <p className="text-base font-bold text-white">{latestW} kg</p>
-                            {hist.length > 1 && gain !== 0 && (
-                              <p className={`text-xs font-semibold ${gain > 0 ? "text-green-400" : "text-red-400"}`}>
-                                {gain > 0 ? `↑ +${gain}` : `↓ ${gain}`} kg
-                              </p>
-                            )}
-                            {hist.length > 1 && gain === 0 && (
-                              <p className="text-xs text-gray-600">—</p>
-                            )}
-                          </>
+                        {hasHistory ? (
+                          !isTimed ? (
+                            <>
+                              <p className="text-base font-bold text-white">{latestW} kg</p>
+                              {hist.length > 1 && gain !== 0 && (
+                                <p className={`text-xs font-semibold ${gain > 0 ? "text-green-400" : "text-red-400"}`}>
+                                  {gain > 0 ? `↑ +${gain}` : `↓ ${gain}`} kg
+                                </p>
+                              )}
+                              {hist.length > 1 && gain === 0 && (
+                                <p className="text-xs text-gray-600">—</p>
+                              )}
+                            </>
+                          ) : (
+                            lastEntry && (
+                              <>
+                                <p className="text-base font-bold text-white">{lastEntry.reps}s</p>
+                                <p className="text-xs text-gray-500">{lastEntry.sets} sets</p>
+                              </>
+                            )
+                          )
                         ) : (
-                          <>
-                            <p className="text-base font-bold text-white">{lastEntry.reps}s</p>
-                            <p className="text-xs text-gray-500">{lastEntry.sets} sets</p>
-                          </>
+                          <p className="text-sm text-gray-700">—</p>
                         )}
                       </div>
                       {hasChart && (
