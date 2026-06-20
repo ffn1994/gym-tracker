@@ -50,10 +50,10 @@ const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: 
 const REST_SECS = 90;
 
 const DAY_HEADER: Record<number, { bg: string; border: string; bar: string }> = {
-  1: { bg: "from-blue-900/70 to-[#1c1c1e]",    border: "border-blue-800/50",    bar: "from-blue-500 to-blue-400" },
-  2: { bg: "from-emerald-900/70 to-[#1c1c1e]", border: "border-emerald-800/50", bar: "from-emerald-500 to-emerald-400" },
-  3: { bg: "from-orange-900/70 to-[#1c1c1e]",  border: "border-orange-800/50",  bar: "from-orange-500 to-orange-400" },
-  4: { bg: "from-violet-900/70 to-[#1c1c1e]",  border: "border-violet-800/50",  bar: "from-violet-500 to-violet-400" },
+  1: { bg: "from-blue-900/70 to-[#13111f]",    border: "border-blue-800/50",    bar: "from-blue-500 to-blue-400" },
+  2: { bg: "from-emerald-900/70 to-[#13111f]", border: "border-emerald-800/50", bar: "from-emerald-500 to-emerald-400" },
+  3: { bg: "from-orange-900/70 to-[#13111f]",  border: "border-orange-800/50",  bar: "from-orange-500 to-orange-400" },
+  4: { bg: "from-violet-900/70 to-[#13111f]",  border: "border-violet-800/50",  bar: "from-violet-500 to-violet-400" },
 };
 
 /* ─── Helpers ────────────────────────────────────────────────── */
@@ -250,7 +250,7 @@ function BodyWeightCard({ initialWeight, savedToday, isEn }: {
   }
 
   return (
-    <div className="bg-[#2c2c2e]/80 border border-white/6 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+    <div className="bg-[#1e1b2e]/70 border border-white/6 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
       <span className="text-lg shrink-0">⚖️</span>
       <span className="text-sm font-medium text-gray-300 shrink-0">
         {isEn ? "Body weight" : "وزن الجسم"}
@@ -310,7 +310,7 @@ function SessionNoteCard({ initialNote, programDayId, isEn }: {
   }
 
   return (
-    <div className="bg-[#2c2c2e]/80 border border-white/6 rounded-2xl p-4 space-y-2 shadow-sm">
+    <div className="bg-[#1e1b2e]/70 border border-white/6 rounded-2xl p-4 space-y-2 shadow-sm">
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
         📝 {isEn ? "Session Note" : "ملاحظة الجلسة"}
       </p>
@@ -319,7 +319,7 @@ function SessionNoteCard({ initialNote, programDayId, isEn }: {
         onChange={e => setNote(e.target.value)}
         placeholder={isEn ? "How did it go? Any notes for next time…" : "كيف كانت الجلسة؟ ملاحظات للمرة القادمة…"}
         rows={2}
-        className="w-full bg-[#1c1c1e] border border-white/8 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-slate-500"
+        className="w-full bg-[#100e1a] border border-white/8 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-slate-500"
       />
       <button
         onClick={save}
@@ -449,7 +449,7 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
   }
 
   return (
-    <div className="bg-[#2c2c2e]/90 border border-white/6 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-[#1e1b2e]/80 border border-white/6 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3.5">
@@ -531,7 +531,7 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#141416]/80">
+      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#080d18]/60">
 
         {/* Rest timer */}
         {restSeconds !== null && (
@@ -731,7 +731,7 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#141416]/80">
+      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#080d18]/60">
         {restSeconds !== null && (
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
@@ -870,7 +870,7 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#141416]/80">
+      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#080d18]/60">
         {restSeconds !== null && (
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
@@ -1043,7 +1043,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {warmup.length > 0 && (
         <Section title={t.warmupTitle} color="text-yellow-500">
-          <div className="bg-[#2c2c2e]/80 border border-white/6 rounded-2xl px-4 divide-y divide-slate-800/40">
+          <div className="bg-[#1e1b2e]/70 border border-white/6 rounded-2xl px-4 divide-y divide-slate-800/40">
             {warmup.map(ex => <SimpleExRow key={ex.id} ex={ex} isEn={isEn} />)}
           </div>
         </Section>
@@ -1063,7 +1063,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {finisher.length > 0 && (
         <Section title={t.finisherTitle} color="text-orange-400">
-          <div className="bg-[#2c2c2e]/80 border border-white/6 rounded-2xl px-4 divide-y divide-slate-800/40">
+          <div className="bg-[#1e1b2e]/70 border border-white/6 rounded-2xl px-4 divide-y divide-slate-800/40">
             {finisher.map(ex => <SimpleExRow key={ex.id} ex={ex} isEn={isEn} />)}
           </div>
         </Section>
@@ -1071,7 +1071,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {cooldown.length > 0 && (
         <Section title={t.cooldownTitle} color="text-green-500">
-          <div className="bg-[#2c2c2e]/80 border border-white/6 rounded-2xl px-4 divide-y divide-slate-800/40">
+          <div className="bg-[#1e1b2e]/70 border border-white/6 rounded-2xl px-4 divide-y divide-slate-800/40">
             {cooldown.map(ex => <SimpleExRow key={ex.id} ex={ex} isEn={isEn} />)}
           </div>
         </Section>
@@ -1082,7 +1082,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {t.progression[day.day_number] && (
         <Section title={t.progressionTitle} color="text-gray-500">
-          <div className="bg-[#2c2c2e]/80 border border-white/6 rounded-2xl p-4 space-y-2">
+          <div className="bg-[#1e1b2e]/70 border border-white/6 rounded-2xl p-4 space-y-2">
             {t.progression[day.day_number].map((note, i) => (
               <div key={i} className="flex gap-2 text-sm text-gray-400">
                 <span className="text-gray-700 shrink-0">→</span>

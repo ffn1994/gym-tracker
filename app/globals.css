@@ -3,7 +3,9 @@
 @tailwind utilities;
 
 body {
-  background: #1c1c1e;
-  background-image: radial-gradient(ellipse 60% 35% at 50% 0%, rgba(150, 150, 170, 0.08) 0%, transparent 65%);
+  background: #13111f;
+  background-image:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(120, 80, 220, 0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 85% 80%, rgba(59, 130, 246, 0.06) 0%, transparent 60%);
   background-attachment: fixed;
 }

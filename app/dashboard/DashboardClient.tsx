@@ -178,7 +178,7 @@ export function DashboardClient({
 
       {/* Tab bar */}
       <div className="flex items-center justify-center mb-6">
-        <div className="flex gap-1 bg-[#2c2c2e] border border-white/8 rounded-xl p-1 shadow-lg">
+        <div className="flex gap-1 bg-[#1e1b30] border border-white/8 rounded-xl p-1 shadow-lg">
           <TabBtn active={tab === "program"} onClick={() => setTab("program")}>{t.tabProgram}</TabBtn>
           <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>{t.tabProgress}</TabBtn>
           <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>{t.tabStats}</TabBtn>
@@ -336,7 +336,7 @@ function ProgressTab({
               </span>
             </Link>
 
-            <div className="bg-[#2c2c2e]/90 border border-white/6 rounded-2xl overflow-hidden">
+            <div className="bg-[#1e1b2e]/80 border border-white/6 rounded-2xl overflow-hidden">
               {dayExes.map((ex, idx) => {
                 const hist = getExHistory(ex, workouts);
                 const sorted = [...hist].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
@@ -467,7 +467,7 @@ function StatsTab({
 
       {/* Streak banner */}
       {weekStreak >= 1 && (
-        <div className="bg-[#2c2c2e]/90 border border-white/6 rounded-2xl px-5 py-4 flex items-center gap-4">
+        <div className="bg-[#1e1b2e]/80 border border-white/6 rounded-2xl px-5 py-4 flex items-center gap-4">
           <span className="text-3xl">{weekStreak >= 4 ? "🔥" : "⚡"}</span>
           <div>
             <p className="text-xl font-bold text-white">
@@ -479,7 +479,7 @@ function StatsTab({
       )}
 
       {/* This week grid */}
-      <div className="bg-[#2c2c2e]/90 border border-white/6 rounded-2xl p-5">
+      <div className="bg-[#1e1b2e]/80 border border-white/6 rounded-2xl p-5">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
           {isEn ? "This Week" : "هذا الأسبوع"}
         </h3>
@@ -525,7 +525,7 @@ function StatsTab({
 
       {/* Records per exercise */}
       {records.length > 0 && (
-        <div className="bg-[#2c2c2e]/90 border border-white/6 rounded-2xl overflow-hidden">
+        <div className="bg-[#1e1b2e]/80 border border-white/6 rounded-2xl overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-800/60">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               {isEn ? "Personal Records" : "الأرقام القياسية"}
