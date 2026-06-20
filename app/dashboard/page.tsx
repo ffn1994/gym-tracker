@@ -15,6 +15,16 @@ export default async function DashboardPage() {
     .order("date", { ascending: false })
     .order("time", { ascending: false });
 
+  const { data: programDays } = await supabase
+    .from("program_days")
+    .select("*")
+    .order("day_number");
+
+  const { data: programExercises } = await supabase
+    .from("program_exercises")
+    .select("*")
+    .order("order_index");
+
   return (
     <div className="min-h-screen bg-gray-950">
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4">
@@ -37,7 +47,11 @@ export default async function DashboardPage() {
       </nav>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
-        <DashboardClient workouts={workouts ?? []} />
+        <DashboardClient
+          workouts={workouts ?? []}
+          programDays={programDays ?? []}
+          programExercises={programExercises ?? []}
+        />
       </main>
     </div>
   );

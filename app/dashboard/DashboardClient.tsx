@@ -3,6 +3,30 @@
 import { useState, useMemo } from "react";
 import { WorkoutCard } from "./WorkoutCard";
 import { AddWorkoutModal } from "./AddWorkoutModal";
+import { ProgramTab } from "./ProgramTab";
+
+type ProgramDay = {
+  id: number;
+  day_number: number;
+  day_name: string;
+  day_of_week: string;
+  duration_text: string;
+  goal: string;
+};
+
+type ProgramExercise = {
+  id: number;
+  program_day_id: number;
+  phase: string;
+  exercise_name: string;
+  muscle_group: string | null;
+  sets: number | null;
+  reps_min: number | null;
+  reps_max: number | null;
+  duration_seconds: number | null;
+  notes: string | null;
+  order_index: number;
+};
 
 type Workout = {
   id: number;
@@ -20,8 +44,16 @@ type Workout = {
   video_url?: string | null;
 };
 
-export function DashboardClient({ workouts }: { workouts: Workout[] }) {
-  const [tab, setTab] = useState<"workouts" | "progress" | "stats">("workouts");
+export function DashboardClient({
+  workouts,
+  programDays,
+  programExercises,
+}: {
+  workouts: Workout[];
+  programDays: ProgramDay[];
+  programExercises: ProgramExercise[];
+}) {
+  const [tab, setTab] = useState<"workouts" | "progress" | "stats" | "program">("program");
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState("");
@@ -82,14 +114,25 @@ export function DashboardClient({ workouts }: { workouts: Workout[] }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
-          <TabBtn active={tab === "workouts"} onClick={() => setTab("workouts")}>Workouts</TabBtn>
-          <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>Progress</TabBtn>
-          <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>Stats</TabBtn>
+          <TabBtn active={tab === "program"} onClick={() => setTab("program")}>البرنامج</TabBtn>
+          <TabBtn active={tab === "workouts"} onClick={() => setTab("workouts")}>تماريني</TabBtn>
+          <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>تقدم</TabBtn>
+          <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>إحصاء</TabBtn>
         </div>
         <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition">
           <span className="text-lg leading-none">+</span> Log Workout
         </button>
       </div>
+
+      {/* PROGRAM TAB */}
+      {tab === "program" && (
+        <ProgramTab
+          programDays={programDays}
+          programExercises={programExercises}
+          workouts={workouts}
+          onAdd={() => setShowAdd(true)}
+        />
+      )}
 
       {/* WORKOUTS TAB */}
       {tab === "workouts" && (
