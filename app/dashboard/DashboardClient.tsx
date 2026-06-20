@@ -178,7 +178,7 @@ export function DashboardClient({
 
       {/* Tab bar */}
       <div className="flex items-center justify-center mb-6">
-        <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 shadow-lg">
+        <div className="flex gap-1 bg-[#131b2e] border border-slate-700/50 rounded-xl p-1 shadow-lg">
           <TabBtn active={tab === "program"} onClick={() => setTab("program")}>{t.tabProgram}</TabBtn>
           <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>{t.tabProgress}</TabBtn>
           <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>{t.tabStats}</TabBtn>
@@ -336,7 +336,7 @@ function ProgressTab({
               </span>
             </Link>
 
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="bg-[#131b2e]/80 border border-slate-700/40 rounded-2xl overflow-hidden">
               {dayExes.map((ex, idx) => {
                 const hist = getExHistory(ex, workouts);
                 const sorted = [...hist].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
@@ -353,13 +353,13 @@ function ProgressTab({
                 return (
                   <div
                     key={ex.id}
-                    className={idx < dayExes.length - 1 ? "border-b border-gray-800/60" : ""}
+                    className={idx < dayExes.length - 1 ? "border-b border-slate-800/40" : ""}
                   >
                     {/* Row */}
                     <button
                       onClick={() => hasChart && setOpenExId(isOpen ? null : ex.id)}
                       className={`w-full px-4 py-3.5 flex items-center gap-3 text-start ${
-                        hasChart ? "cursor-pointer active:bg-gray-800/40" : "cursor-default"
+                        hasChart ? "cursor-pointer active:bg-slate-800/30" : "cursor-default"
                       }`}
                     >
                       <div className="flex-1 min-w-0">
@@ -467,7 +467,7 @@ function StatsTab({
 
       {/* Streak banner */}
       {weekStreak >= 1 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl px-5 py-4 flex items-center gap-4">
+        <div className="bg-[#131b2e]/80 border border-slate-700/40 rounded-2xl px-5 py-4 flex items-center gap-4">
           <span className="text-3xl">{weekStreak >= 4 ? "🔥" : "⚡"}</span>
           <div>
             <p className="text-xl font-bold text-white">
@@ -479,7 +479,7 @@ function StatsTab({
       )}
 
       {/* This week grid */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div className="bg-[#131b2e]/80 border border-slate-700/40 rounded-2xl p-5">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
           {isEn ? "This Week" : "هذا الأسبوع"}
         </h3>
@@ -495,7 +495,7 @@ function StatsTab({
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition text-center ${
                   done
                     ? "border-green-700 bg-green-900/20"
-                    : "border-gray-800 hover:border-gray-700"
+                    : "border-slate-700/30 hover:border-slate-600/50"
                 }`}
               >
                 <span className="text-xl">{done ? "✅" : DAY_ICONS[day.day_number]}</span>
@@ -507,7 +507,7 @@ function StatsTab({
         </div>
 
         {/* Week numbers */}
-        <div className="mt-4 pt-4 border-t border-gray-800 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-4 pt-4 border-t border-slate-800/50 grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-2xl font-bold text-white">{daysDoneThisWeek}<span className="text-sm text-gray-500">/4</span></p>
             <p className="text-xs text-gray-500 mt-0.5">{isEn ? "Days done" : "أيام مكتملة"}</p>
@@ -525,8 +525,8 @@ function StatsTab({
 
       {/* Records per exercise */}
       {records.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-800">
+        <div className="bg-[#131b2e]/80 border border-slate-700/40 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-800/60">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               {isEn ? "Personal Records" : "الأرقام القياسية"}
             </h3>
@@ -539,7 +539,7 @@ function StatsTab({
               <div
                 key={r.ex.id}
                 className={`flex items-center justify-between px-5 py-3.5 ${
-                  idx < records.length - 1 ? "border-b border-gray-800/60" : ""
+                  idx < records.length - 1 ? "border-b border-slate-800/40" : ""
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -591,7 +591,7 @@ function TabBtn({ active, onClick, children }: {
     <button
       onClick={onClick}
       className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${
-        active ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md" : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+        active ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md" : "text-gray-400 hover:text-white hover:bg-slate-700/50"
       }`}
     >
       {children}

@@ -62,7 +62,7 @@ export default async function ProgramDayPage({ params }: { params: Promise<{ id:
   const todayNote = noteData?.note ?? "";
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen">
       <ProgramDayNav />
       <main className="max-w-2xl mx-auto px-4 py-6">
         <ProgramDayView

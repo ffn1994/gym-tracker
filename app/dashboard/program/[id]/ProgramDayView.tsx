@@ -49,6 +49,13 @@ type WorkoutEntry = {
 const DAY_ICONS: Record<number, string> = { 1: "💪", 2: "🏃", 3: "🦵", 4: "🚴" };
 const REST_SECS = 90;
 
+const DAY_HEADER: Record<number, { bg: string; border: string; bar: string }> = {
+  1: { bg: "from-blue-900/70 to-[#0b1120]",    border: "border-blue-800/50",    bar: "from-blue-500 to-blue-400" },
+  2: { bg: "from-emerald-900/70 to-[#0b1120]", border: "border-emerald-800/50", bar: "from-emerald-500 to-emerald-400" },
+  3: { bg: "from-orange-900/70 to-[#0b1120]",  border: "border-orange-800/50",  bar: "from-orange-500 to-orange-400" },
+  4: { bg: "from-violet-900/70 to-[#0b1120]",  border: "border-violet-800/50",  bar: "from-violet-500 to-violet-400" },
+};
+
 /* ─── Helpers ────────────────────────────────────────────────── */
 
 function formatDate(d: string) {
@@ -147,7 +154,7 @@ function Stepper({
     onChange(String(next));
   }
   return (
-    <div className={`flex items-center flex-1 min-w-0 bg-gray-800 rounded-lg overflow-hidden border ${hasError ? "border-red-500" : "border-gray-700/80"}`}>
+    <div className={`flex items-center flex-1 min-w-0 bg-[#0b1120] rounded-lg overflow-hidden border ${hasError ? "border-red-500" : "border-slate-700/60"}`}>
       <button
         type="button"
         onClick={() => adjust(-step)}
@@ -243,7 +250,7 @@ function BodyWeightCard({ initialWeight, savedToday, isEn }: {
   }
 
   return (
-    <div className="bg-gradient-to-r from-gray-900 to-gray-900/90 border border-gray-700/60 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+    <div className="bg-[#131b2e]/70 border border-slate-700/40 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
       <span className="text-lg shrink-0">⚖️</span>
       <span className="text-sm font-medium text-gray-300 shrink-0">
         {isEn ? "Body weight" : "وزن الجسم"}
@@ -303,7 +310,7 @@ function SessionNoteCard({ initialNote, programDayId, isEn }: {
   }
 
   return (
-    <div className="bg-gray-900/80 border border-gray-700/60 rounded-2xl p-4 space-y-2 shadow-sm">
+    <div className="bg-[#131b2e]/70 border border-slate-700/40 rounded-2xl p-4 space-y-2 shadow-sm">
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
         📝 {isEn ? "Session Note" : "ملاحظة الجلسة"}
       </p>
@@ -312,7 +319,7 @@ function SessionNoteCard({ initialNote, programDayId, isEn }: {
         onChange={e => setNote(e.target.value)}
         placeholder={isEn ? "How did it go? Any notes for next time…" : "كيف كانت الجلسة؟ ملاحظات للمرة القادمة…"}
         rows={2}
-        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none focus:outline-none focus:border-gray-500"
+        className="w-full bg-[#0b1120] border border-slate-700/60 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-slate-500"
       />
       <button
         onClick={save}
@@ -442,7 +449,7 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-[#131b2e]/80 border border-slate-700/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3.5">
@@ -486,7 +493,7 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
 
       {/* History */}
       {history.length > 0 ? (
-        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
+        <div className="border-t border-slate-800/60 divide-y divide-slate-800/40">
           {history.slice(0, 8).map((entry, idx) => {
             const prev  = history[idx + 1];
             const delta = prev && !isTimed ? entry.weight_kg - prev.weight_kg : null;
@@ -520,11 +527,11 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
           })}
         </div>
       ) : (
-        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
+        <p className="text-xs text-slate-600 px-4 pb-3 border-t border-slate-800/50 pt-2">{t.noHistory}</p>
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-gray-800/80 space-y-2 bg-gray-950/40">
+      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#080d18]/60">
 
         {/* Rest timer */}
         {restSeconds !== null && (
@@ -705,7 +712,7 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
 
       {/* History */}
       {history.length > 0 ? (
-        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
+        <div className="border-t border-slate-800/60 divide-y divide-slate-800/40">
           {history.slice(0, 6).map(entry => {
             const wk = weekLabel(entry.date, history, t.weekLabel);
             return (
@@ -720,11 +727,11 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
           })}
         </div>
       ) : (
-        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
+        <p className="text-xs text-slate-600 px-4 pb-3 border-t border-slate-800/50 pt-2">{t.noHistory}</p>
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-gray-800/80 space-y-2 bg-gray-950/40">
+      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#080d18]/60">
         {restSeconds !== null && (
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
@@ -846,7 +853,7 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
 
       {/* History */}
       {history.length > 0 ? (
-        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
+        <div className="border-t border-slate-800/60 divide-y divide-slate-800/40">
           {history.slice(0, 6).map(entry => {
             const wk = weekLabel(entry.date, history, t.weekLabel);
             return (
@@ -859,11 +866,11 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
           })}
         </div>
       ) : (
-        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
+        <p className="text-xs text-slate-600 px-4 pb-3 border-t border-slate-800/50 pt-2">{t.noHistory}</p>
       )}
 
       {/* Form */}
-      <div className="px-4 py-3 border-t border-gray-800/80 space-y-2 bg-gray-950/40">
+      <div className="px-4 py-3 border-t border-slate-800/50 space-y-2 bg-[#080d18]/60">
         {restSeconds !== null && (
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
@@ -999,7 +1006,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
       </div>
 
       {/* Day header */}
-      <div className="bg-gradient-to-br from-gray-800/80 to-gray-900 border border-gray-700/60 rounded-2xl p-5 shadow-lg">
+      <div className={`bg-gradient-to-br ${(DAY_HEADER[day.day_number] ?? DAY_HEADER[1]).bg} border ${(DAY_HEADER[day.day_number] ?? DAY_HEADER[1]).border} rounded-2xl p-5 shadow-lg`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -1024,8 +1031,8 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
               <span>{t.dayProgress}</span>
               <span>{doneToday.length} / {mainExercises.length} {t.exercisesLogged}</span>
             </div>
-            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : "bg-gradient-to-r from-blue-500 to-blue-400"}`} style={{ width: `${pct}%` }} />
+            <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-gradient-to-r from-green-500 to-emerald-400" : `bg-gradient-to-r ${(DAY_HEADER[day.day_number] ?? DAY_HEADER[1]).bar}`}`} style={{ width: `${pct}%` }} />
             </div>
           </div>
         )}
@@ -1036,7 +1043,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {warmup.length > 0 && (
         <Section title={t.warmupTitle} color="text-yellow-500">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
+          <div className="bg-[#131b2e]/70 border border-slate-700/30 rounded-2xl px-4 divide-y divide-slate-800/40">
             {warmup.map(ex => <SimpleExRow key={ex.id} ex={ex} isEn={isEn} />)}
           </div>
         </Section>
@@ -1056,7 +1063,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {finisher.length > 0 && (
         <Section title={t.finisherTitle} color="text-orange-400">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
+          <div className="bg-[#131b2e]/70 border border-slate-700/30 rounded-2xl px-4 divide-y divide-slate-800/40">
             {finisher.map(ex => <SimpleExRow key={ex.id} ex={ex} isEn={isEn} />)}
           </div>
         </Section>
@@ -1064,7 +1071,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {cooldown.length > 0 && (
         <Section title={t.cooldownTitle} color="text-green-500">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
+          <div className="bg-[#131b2e]/70 border border-slate-700/30 rounded-2xl px-4 divide-y divide-slate-800/40">
             {cooldown.map(ex => <SimpleExRow key={ex.id} ex={ex} isEn={isEn} />)}
           </div>
         </Section>
@@ -1075,7 +1082,7 @@ export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeigh
 
       {t.progression[day.day_number] && (
         <Section title={t.progressionTitle} color="text-gray-500">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+          <div className="bg-[#131b2e]/70 border border-slate-700/30 rounded-2xl p-4 space-y-2">
             {t.progression[day.day_number].map((note, i) => (
               <div key={i} className="flex gap-2 text-sm text-gray-400">
                 <span className="text-gray-700 shrink-0">→</span>
