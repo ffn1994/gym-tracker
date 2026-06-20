@@ -77,6 +77,20 @@ function getExHistory(ex: ProgramExercise, workouts: Workout[]): Workout[] {
     .sort((a, b) => a.date.localeCompare(a.date) || a.time.localeCompare(a.time));
 }
 
+function calcWeekStreak(workouts: Workout[]): number {
+  if (!workouts.length) return 0;
+  function weekNum(dateStr: string): number {
+    return Math.floor(new Date(dateStr + "T00:00:00").getTime() / (7 * 24 * 60 * 60 * 1000));
+  }
+  const weeks = [...new Set(workouts.map(w => weekNum(w.date)))].sort((a, b) => a - b);
+  let streak = 1;
+  for (let i = weeks.length - 1; i > 0; i--) {
+    if (weeks[i] - weeks[i - 1] === 1) streak++;
+    else break;
+  }
+  return streak;
+}
+
 function getWeekStart(): string {
   const d = new Date();
   const day = d.getDay();
@@ -161,6 +175,7 @@ export function DashboardClient({
           thisWeekWorkouts={thisWeekWorkouts}
           daysDoneThisWeek={daysDoneThisWeek}
           weekStart={weekStart}
+          weekStreak={calcWeekStreak(workouts)}
           isEn={isEn}
         />
       )}
@@ -281,7 +296,7 @@ function ProgressTab({
 
 function StatsTab({
   programDays, programExercises, workouts,
-  thisWeekWorkouts, daysDoneThisWeek, weekStart, isEn,
+  thisWeekWorkouts, daysDoneThisWeek, weekStart, weekStreak, isEn,
 }: {
   programDays: ProgramDay[];
   programExercises: ProgramExercise[];
@@ -289,6 +304,7 @@ function StatsTab({
   thisWeekWorkouts: Workout[];
   daysDoneThisWeek: number;
   weekStart: string;
+  weekStreak: number;
   isEn: boolean;
 }) {
   const totalSetsThisWeek = thisWeekWorkouts.reduce((s, w) => s + w.sets, 0);
@@ -311,6 +327,19 @@ function StatsTab({
 
   return (
     <div className="space-y-5">
+
+      {/* Streak banner */}
+      {weekStreak >= 1 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl px-5 py-4 flex items-center gap-4">
+          <span className="text-3xl">{weekStreak >= 4 ? "🔥" : "⚡"}</span>
+          <div>
+            <p className="text-xl font-bold text-white">
+              {weekStreak} {isEn ? (weekStreak === 1 ? "week" : "weeks") : "أسبوع"}
+            </p>
+            <p className="text-xs text-gray-500">{isEn ? "Consecutive weeks training" : "أسابيع متواصلة في التمرين"}</p>
+          </div>
+        </div>
+      )}
 
       {/* This week grid */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">

@@ -13,7 +13,13 @@
       "Bash(del \"C:\\\\Users\\\\appap\\\\OneDrive\\\\Desktop\\\\gym claude\\\\middleware.ts\")",
       "PowerShell(Remove-Item \"C:\\\\Users\\\\appap\\\\OneDrive\\\\Desktop\\\\gym claude\\\\middleware.ts\" -Confirm:$false)",
       "mcp__Claude_Preview__preview_start",
-      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__get_project"
+      "mcp__abc0a412-55a1-4fcc-8b7c-55d6c85c3307__get_project",
+      "mcp__8536ecaf-5699-4188-aff6-8851886eeb79__deploy_to_vercel",
+      "Bash(npx vercel *)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\appap\\\\OneDrive\\\\Desktop\\\\gym claude\\\\app\\\\dashboard\\\\program\\\\[id]\" 2>&1; echo \"done\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

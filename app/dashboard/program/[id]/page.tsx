@@ -38,6 +38,29 @@ export default async function ProgramDayPage({ params }: { params: Promise<{ id:
         .order("time", { ascending: false })
     : { data: [] };
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const { data: bwData } = await supabase
+    .from("body_weights")
+    .select("weight_kg, date")
+    .eq("user_id", user.id)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const latestBodyWeight = bwData?.weight_kg ? Number(bwData.weight_kg) : null;
+  const bodyWeightToday = bwData?.date === todayStr;
+
+  const { data: noteData } = await supabase
+    .from("session_notes")
+    .select("note")
+    .eq("user_id", user.id)
+    .eq("program_day_id", id)
+    .eq("date", todayStr)
+    .maybeSingle();
+
+  const todayNote = noteData?.note ?? "";
+
   return (
     <div className="min-h-screen bg-gray-950">
       <ProgramDayNav />
@@ -46,6 +69,9 @@ export default async function ProgramDayPage({ params }: { params: Promise<{ id:
           day={day}
           exercises={exercises ?? []}
           workoutHistory={workoutHistory ?? []}
+          latestBodyWeight={latestBodyWeight}
+          bodyWeightToday={bodyWeightToday}
+          todayNote={todayNote}
         />
       </main>
     </div>

@@ -39,3 +39,34 @@ export async function logExercise(data: {
   revalidatePath(`/dashboard/program/${data.program_day_id}`);
   revalidatePath("/dashboard");
 }
+
+export async function logBodyWeight(weight_kg: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const today = new Date().toISOString().split("T")[0];
+  const { error } = await supabase
+    .from("body_weights")
+    .upsert({ user_id: user.id, weight_kg, date: today }, { onConflict: "user_id,date" });
+
+  if (error) throw error;
+  revalidatePath("/dashboard");
+}
+
+export async function saveSessionNote(data: { program_day_id: number; note: string }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const today = new Date().toISOString().split("T")[0];
+  const { error } = await supabase
+    .from("session_notes")
+    .upsert(
+      { user_id: user.id, program_day_id: data.program_day_id, date: today, note: data.note },
+      { onConflict: "user_id,program_day_id,date" }
+    );
+
+  if (error) throw error;
+  revalidatePath(`/dashboard/program/${data.program_day_id}`);
+}

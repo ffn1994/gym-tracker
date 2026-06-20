@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useLang } from "@/app/lang";
-import { logExercise } from "./actions";
+import { logExercise, logBodyWeight, saveSessionNote } from "./actions";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 
@@ -132,12 +132,13 @@ function groupExercises(exercises: ProgramExercise[]): ExGroup[] {
 /* ─── Stepper input (+/−) ────────────────────────────────────── */
 
 function Stepper({
-  value, onChange, step, placeholder,
+  value, onChange, step, placeholder, hasError,
 }: {
   value: string;
   onChange: (v: string) => void;
   step: number;
   placeholder: string;
+  hasError?: boolean;
 }) {
   function adjust(delta: number) {
     const cur = parseFloat(value) || 0;
@@ -145,7 +146,7 @@ function Stepper({
     onChange(String(next));
   }
   return (
-    <div className="flex items-center flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+    <div className={`flex items-center flex-1 min-w-0 bg-gray-800 rounded-lg overflow-hidden border ${hasError ? "border-red-500" : "border-gray-700"}`}>
       <button
         type="button"
         onClick={() => adjust(-step)}
@@ -212,6 +213,124 @@ function useRestTimer() {
   };
 }
 
+/* ─── Body Weight Card ───────────────────────────────────────── */
+
+function BodyWeightCard({ initialWeight, savedToday, isEn }: {
+  initialWeight: number | null;
+  savedToday: boolean;
+  isEn: boolean;
+}) {
+  const [weight, setWeight] = useState(initialWeight ? String(initialWeight) : "");
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+  const [hasErr, setHasErr] = useState(false);
+
+  function save() {
+    const w = parseFloat(weight);
+    if (!weight || isNaN(w) || w <= 0) { setHasErr(true); return; }
+    setHasErr(false);
+    startTransition(async () => {
+      try {
+        await logBodyWeight(w);
+        setFlash("ok");
+        setTimeout(() => setFlash("idle"), 2500);
+      } catch {
+        setFlash("err");
+        setTimeout(() => setFlash("idle"), 2000);
+      }
+    });
+  }
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 flex items-center gap-3">
+      <span className="text-lg shrink-0">⚖️</span>
+      <span className="text-sm font-medium text-gray-300 shrink-0">
+        {isEn ? "Body weight" : "وزن الجسم"}
+      </span>
+      {(savedToday || flash === "ok") && (
+        <span className="text-xs text-green-400 font-medium shrink-0">✓</span>
+      )}
+      <div className="flex items-center gap-1.5 ms-auto">
+        <div className="w-28">
+          <Stepper
+            value={weight}
+            onChange={v => { setWeight(v); setHasErr(false); }}
+            step={0.5}
+            placeholder={isEn ? "kg" : "كيلو"}
+            hasError={hasErr}
+          />
+        </div>
+        <button
+          onClick={save}
+          disabled={pending}
+          className={`shrink-0 h-9 px-3 rounded-lg text-sm font-bold transition ${
+            flash === "ok"  ? "bg-green-600 text-white" :
+            flash === "err" ? "bg-red-600 text-white"   :
+            "bg-gray-700 hover:bg-gray-600 text-white"
+          } disabled:opacity-50`}
+        >
+          {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : isEn ? "Save" : "حفظ"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Session Note Card ──────────────────────────────────────── */
+
+function SessionNoteCard({ initialNote, programDayId, isEn }: {
+  initialNote: string;
+  programDayId: number;
+  isEn: boolean;
+}) {
+  const [note, setNote] = useState(initialNote);
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+
+  function save() {
+    if (!note.trim()) return;
+    startTransition(async () => {
+      try {
+        await saveSessionNote({ program_day_id: programDayId, note: note.trim() });
+        setFlash("ok");
+        setTimeout(() => setFlash("idle"), 2500);
+      } catch {
+        setFlash("err");
+        setTimeout(() => setFlash("idle"), 2000);
+      }
+    });
+  }
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+        📝 {isEn ? "Session Note" : "ملاحظة الجلسة"}
+      </p>
+      <textarea
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        placeholder={isEn ? "How did it go? Any notes for next time…" : "كيف كانت الجلسة؟ ملاحظات للمرة القادمة…"}
+        rows={2}
+        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none focus:outline-none focus:border-gray-500"
+      />
+      <button
+        onClick={save}
+        disabled={pending || !note.trim()}
+        className={`w-full h-9 rounded-lg text-sm font-bold transition ${
+          flash === "ok"  ? "bg-green-600 text-white" :
+          flash === "err" ? "bg-red-600 text-white"   :
+          "bg-gray-700 hover:bg-gray-600 text-white"
+        } disabled:opacity-40`}
+      >
+        {pending ? "…" : flash === "ok"
+          ? `✓ ${isEn ? "Saved" : "تم الحفظ"}`
+          : flash === "err" ? "✗"
+          : isEn ? "Save Note" : "حفظ الملاحظة"}
+      </button>
+    </div>
+  );
+}
+
 /* ─── Exercise Tracker Card ──────────────────────────────────── */
 
 function ExerciseTrackerCard({ ex, history, programDayId }: {
@@ -227,7 +346,11 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
   const isTimed = ex.duration_seconds !== null && ex.reps_min === null && ex.sets !== null;
   const showWeight = !isTimed && ex.muscle_group !== "Cardio";
 
-  const latest = history[0];
+  const latest    = history[0];
+  const maxWeight = showWeight && history.length > 0
+    ? Math.max(...history.map(h => Number(h.weight_kg)))
+    : 0;
+
   const [weight, setWeight] = useState(latest ? String(latest.weight_kg) : "");
   const [sets,   setSets]   = useState(latest ? String(latest.sets) : (ex.sets ? String(ex.sets) : ""));
   const [reps,   setReps]   = useState(
@@ -236,13 +359,19 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
       : (ex.reps_max ? String(ex.reps_max) : "")
   );
   const [pending, startTransition] = useTransition();
-  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+  const [flash, setFlash] = useState<"idle" | "ok" | "pr" | "err">("idle");
+  const [errFields, setErrFields] = useState<Set<string>>(new Set());
   const { restSeconds, startRest, stopRest } = useRestTimer();
 
   const todayStr    = new Date().toISOString().split("T")[0];
   const loggedToday = history.some(h => h.date === todayStr);
 
+  function clearErr(field: string) {
+    setErrFields(prev => { const s = new Set(prev); s.delete(field); return s; });
+  }
+
   function doLog(w: number, s: number, r: number) {
+    const isNewPR = showWeight && w > 0 && w > maxWeight;
     startTransition(async () => {
       try {
         await logExercise({
@@ -251,9 +380,9 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
           weight_kg: w, sets: s, reps: r, notes: "",
           program_day_id: programDayId,
         });
-        setFlash("ok");
+        setFlash(isNewPR ? "pr" : "ok");
         startRest();
-        setTimeout(() => setFlash("idle"), 1800);
+        setTimeout(() => setFlash("idle"), isNewPR ? 3000 : 1800);
       } catch {
         setFlash("err");
         setTimeout(() => setFlash("idle"), 1800);
@@ -262,7 +391,11 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
   }
 
   function submit() {
-    doLog(parseFloat(weight) || 0, parseInt(sets) || 1, parseInt(reps) || 0);
+    const errs = new Set<string>();
+    if (!sets || parseInt(sets) <= 0) errs.add("sets");
+    if (!reps || parseInt(reps) <= 0) errs.add("reps");
+    if (errs.size > 0) { setErrFields(errs); return; }
+    doLog(parseFloat(weight) || 0, parseInt(sets), parseInt(reps));
   }
 
   function repeatLast() {
@@ -305,12 +438,18 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
                 <span className="text-gray-300 flex-1">
                   {isTimed ? `${entry.sets} × ${entry.reps}s` : `${entry.sets}×${entry.reps}`}
                 </span>
-                {delta !== null && delta !== 0 && (
-                  <span className={`font-semibold shrink-0 ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
-                    {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}
-                  </span>
+                {!isTimed && Number(entry.weight_kg) > 0 && Number(entry.weight_kg) === maxWeight ? (
+                  <span className="text-amber-400 shrink-0">🏆</span>
+                ) : (
+                  <>
+                    {delta !== null && delta !== 0 && (
+                      <span className={`font-semibold shrink-0 ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
+                        {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}
+                      </span>
+                    )}
+                    {delta === 0 && <span className="text-gray-700 shrink-0">—</span>}
+                  </>
                 )}
-                {delta === 0 && <span className="text-gray-700 shrink-0">—</span>}
               </div>
             );
           })}
@@ -330,10 +469,10 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
         {/* Steppers */}
         <div className="flex gap-1.5">
           {showWeight && (
-            <Stepper value={weight} onChange={setWeight} step={2.5} placeholder={t.weightKg} />
+            <Stepper value={weight} onChange={v => { setWeight(v); clearErr("weight"); }} step={2.5} placeholder={t.weightKg} />
           )}
-          <Stepper value={sets} onChange={setSets} step={1} placeholder={t.sets} />
-          <Stepper value={reps} onChange={setReps} step={1} placeholder={isTimed ? t.seconds : t.reps} />
+          <Stepper value={sets} onChange={v => { setSets(v); clearErr("sets"); }} step={1} placeholder={t.sets} hasError={errFields.has("sets")} />
+          <Stepper value={reps} onChange={v => { setReps(v); clearErr("reps"); }} step={1} placeholder={isTimed ? t.seconds : t.reps} hasError={errFields.has("reps")} />
         </div>
 
         {/* Buttons */}
@@ -352,12 +491,13 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
             onClick={submit}
             disabled={pending}
             className={`flex-1 h-9 rounded-lg font-bold text-sm transition ${
+              flash === "pr"  ? "bg-amber-500 text-white" :
               flash === "ok"  ? "bg-green-600 text-white" :
               flash === "err" ? "bg-red-600 text-white"   :
               "bg-blue-600 hover:bg-blue-500 text-white"
             } disabled:opacity-50`}
           >
-            {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
+            {pending ? "…" : flash === "pr" ? "🏆 رقم قياسي!" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
           </button>
         </div>
       </div>
@@ -393,6 +533,11 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
 
   const [sets, setSets] = useState(latest ? String(latest.sets) : (selected.sets ? String(selected.sets) : ""));
   const [reps, setReps] = useState(latest ? String(latest.reps) : "");
+  const [errFields, setErrFields] = useState<Set<string>>(new Set());
+
+  function clearErr(field: string) {
+    setErrFields(prev => { const s = new Set(prev); s.delete(field); return s; });
+  }
 
   function handleSelect(idx: number) {
     if (idx === selectedIdx) return;
@@ -403,6 +548,7 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
     setSets(last ? String(last.sets) : (ex.sets ? String(ex.sets) : ""));
     setReps(last ? String(last.reps) : "");
     setFlash("idle");
+    setErrFields(new Set());
   }
 
   function doLog(s: number, r: number) {
@@ -424,7 +570,13 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
     });
   }
 
-  function submit() { doLog(parseInt(sets) || 1, parseInt(reps) || 0); }
+  function submit() {
+    const errs = new Set<string>();
+    if (!sets || parseInt(sets) <= 0) errs.add("sets");
+    if (!reps || parseInt(reps) <= 0) errs.add("reps");
+    if (errs.size > 0) { setErrFields(errs); return; }
+    doLog(parseInt(sets), parseInt(reps));
+  }
   function repeatLast() { if (latest) doLog(latest.sets, latest.reps); }
 
   const rawNote    = isEn ? (selected.notes_en ?? selected.notes) : selected.notes;
@@ -493,8 +645,8 @@ function CardioGroupCard({ exercises, allHistory, programDayId }: {
           <RestTimer seconds={restSeconds} onDismiss={stopRest} isEn={isEn} />
         )}
         <div className="flex gap-1.5">
-          <Stepper value={sets} onChange={setSets} step={1} placeholder={t.sets} />
-          <Stepper value={reps} onChange={setReps} step={1} placeholder={isLongDuration ? t.min : isTimed ? t.seconds : t.reps} />
+          <Stepper value={sets} onChange={v => { setSets(v); clearErr("sets"); }} step={1} placeholder={t.sets} hasError={errFields.has("sets")} />
+          <Stepper value={reps} onChange={v => { setReps(v); clearErr("reps"); }} step={1} placeholder={isLongDuration ? t.min : isTimed ? t.seconds : t.reps} hasError={errFields.has("reps")} />
         </div>
         <div className="flex gap-1.5">
           {latest && (
@@ -538,6 +690,7 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
   const [rounds, setRounds] = useState(latest ? String(latest.sets) : (primary.sets ? String(primary.sets) : ""));
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+  const [roundsErr, setRoundsErr] = useState(false);
 
   function doLog(s: number) {
     startTransition(async () => {
@@ -558,7 +711,10 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
     });
   }
 
-  function submit()     { doLog(parseInt(rounds) || 1); }
+  function submit() {
+    if (!rounds || parseInt(rounds) <= 0) { setRoundsErr(true); return; }
+    doLog(parseInt(rounds));
+  }
   function repeatLast() { if (latest) doLog(latest.sets); }
 
   const ICONS = ["🏃", "🚶"];
@@ -614,7 +770,7 @@ function CircuitCard({ exercises, allHistory, programDayId }: {
               className="shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-gray-800 border border-gray-700 text-base hover:border-gray-600 active:bg-gray-700 transition disabled:opacity-50"
             >🔄</button>
           )}
-          <Stepper value={rounds} onChange={setRounds} step={1} placeholder={isEn ? "Rounds" : "جولات"} />
+          <Stepper value={rounds} onChange={v => { setRounds(v); setRoundsErr(false); }} step={1} placeholder={isEn ? "Rounds" : "جولات"} hasError={roundsErr} />
           <button onClick={submit} disabled={pending}
             className={`shrink-0 h-10 px-5 rounded-lg font-bold text-sm transition ${
               flash === "ok" ? "bg-green-600 text-white" : flash === "err" ? "bg-red-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"
@@ -663,10 +819,13 @@ function Section({ title, color, children }: { title: string; color: string; chi
 
 /* ─── Main Component ─────────────────────────────────────────── */
 
-export function ProgramDayView({ day, exercises, workoutHistory }: {
+export function ProgramDayView({ day, exercises, workoutHistory, latestBodyWeight, bodyWeightToday, todayNote }: {
   day: ProgramDay;
   exercises: ProgramExercise[];
   workoutHistory: WorkoutEntry[];
+  latestBodyWeight: number | null;
+  bodyWeightToday: boolean;
+  todayNote: string;
 }) {
   const { lang, t } = useLang();
   const isEn = lang === "en";
@@ -732,6 +891,9 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
         )}
       </div>
 
+      {/* Body weight */}
+      <BodyWeightCard initialWeight={latestBodyWeight} savedToday={bodyWeightToday} isEn={isEn} />
+
       {warmup.length > 0 && (
         <Section title={t.warmupTitle} color="text-yellow-500">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 divide-y divide-gray-800/60">
@@ -767,6 +929,9 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
           </div>
         </Section>
       )}
+
+      {/* Session note */}
+      <SessionNoteCard initialNote={todayNote} programDayId={day.id} isEn={isEn} />
 
       {t.progression[day.day_number] && (
         <Section title={t.progressionTitle} color="text-gray-500">
