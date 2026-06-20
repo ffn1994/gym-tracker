@@ -76,7 +76,7 @@ function getExHistory(ex: ProgramExercise, workouts: Workout[]): Workout[] {
         (en && (wn.includes(en) || en.includes(wn)))
       );
     })
-    .sort((a, b) => a.date.localeCompare(a.date) || a.time.localeCompare(a.time));
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 }
 
 function calcWeekStreak(workouts: Workout[]): number {
