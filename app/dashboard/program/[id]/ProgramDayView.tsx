@@ -93,26 +93,41 @@ function weekLabel(date: string, history: WorkoutEntry[], prefix: string): strin
 
 /* ─── Group helpers ──────────────────────────────────────────── */
 
-function isAlternativeExercise(ex: ProgramExercise): boolean {
+type ExGroup =
+  | { kind: "single"; ex: ProgramExercise }
+  | { kind: "choice"; exercises: ProgramExercise[] }   // pick one
+  | { kind: "circuit"; exercises: ProgramExercise[] }; // do all, log rounds
+
+function isChoiceExercise(ex: ProgramExercise): boolean {
   const note = (ex.notes_en ?? ex.notes ?? "").toLowerCase();
   return note.includes("pick one") || note.includes("اختر واحد");
 }
 
-function groupExercises(exercises: ProgramExercise[]): Array<ProgramExercise | ProgramExercise[]> {
-  const result: Array<ProgramExercise | ProgramExercise[]> = [];
-  let group: ProgramExercise[] = [];
-  for (const ex of exercises) {
-    if (isAlternativeExercise(ex)) {
-      group.push(ex);
+function isRecoveryExercise(ex: ProgramExercise): boolean {
+  const note = (ex.notes_en ?? ex.notes ?? "").toLowerCase();
+  return note.includes("between each round") || note.includes("بين كل");
+}
+
+function groupExercises(exercises: ProgramExercise[]): ExGroup[] {
+  const result: ExGroup[] = [];
+  let i = 0;
+  while (i < exercises.length) {
+    const ex = exercises[i];
+    if (isChoiceExercise(ex)) {
+      const group: ProgramExercise[] = [ex];
+      while (i + 1 < exercises.length && isChoiceExercise(exercises[i + 1])) {
+        i++;
+        group.push(exercises[i]);
+      }
+      result.push({ kind: "choice", exercises: group });
+    } else if (i + 1 < exercises.length && isRecoveryExercise(exercises[i + 1])) {
+      result.push({ kind: "circuit", exercises: [ex, exercises[i + 1]] });
+      i++;
     } else {
-      if (group.length > 1) result.push(group);
-      else if (group.length === 1) result.push(group[0]);
-      group = [];
-      result.push(ex);
+      result.push({ kind: "single", ex });
     }
+    i++;
   }
-  if (group.length > 1) result.push(group);
-  else if (group.length === 1) result.push(group[0]);
   return result;
 }
 
@@ -283,6 +298,131 @@ function CardioGroupCard({
       {displayNote && (
         <p className="text-xs text-gray-600 px-4 pb-2.5">{displayNote}</p>
       )}
+    </div>
+  );
+}
+
+/* ─── Circuit Card (run + recovery → one rounds input) ───────── */
+
+function CircuitCard({
+  exercises,
+  allHistory,
+  programDayId,
+}: {
+  exercises: ProgramExercise[];
+  allHistory: WorkoutEntry[];
+  programDayId: number;
+}) {
+  const { lang, t } = useLang();
+  const isEn = lang === "en";
+
+  const primary = exercises[0];
+  const history = getHistory(primary, allHistory);
+  const latest = history[0];
+  const todayStr = new Date().toISOString().split("T")[0];
+  const loggedToday = history.some(h => h.date === todayStr);
+
+  const [rounds, setRounds] = useState(
+    latest ? String(latest.sets) : (primary.sets ? String(primary.sets) : "")
+  );
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+
+  function submit() {
+    const s = parseInt(rounds) || 1;
+    startTransition(async () => {
+      try {
+        for (const ex of exercises) {
+          await logExercise({
+            exercise_name: ex.exercise_name,
+            muscle_group: ex.muscle_group,
+            weight_kg: 0,
+            sets: s,
+            reps: 1,
+            notes: "",
+            program_day_id: programDayId,
+          });
+        }
+        setFlash("ok");
+        setTimeout(() => setFlash("idle"), 1800);
+      } catch {
+        setFlash("err");
+        setTimeout(() => setFlash("idle"), 1800);
+      }
+    });
+  }
+
+  const ICONS = ["🏃", "🚶"];
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+
+      {/* Exercise names */}
+      <div className="px-4 pt-4 pb-3 space-y-1.5">
+        {exercises.map((ex, idx) => {
+          const name = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
+          return (
+            <div key={ex.id} className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-white">
+                {ICONS[idx] ?? "•"} {name}
+              </span>
+              {idx === 0 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {loggedToday && (
+                    <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
+                  )}
+                  <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
+                    {primary.sets}×
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* History */}
+      {history.length > 0 ? (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
+          {history.slice(0, 6).map((entry, idx) => {
+            const wk = weekLabel(entry.date, history, t.weekLabel);
+            return (
+              <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-xs">
+                <span className="w-7 text-gray-600 shrink-0 font-mono">{wk}</span>
+                <span className="w-14 text-gray-500 shrink-0">{formatDate(entry.date)}</span>
+                <span className="text-gray-300">
+                  {entry.sets} {isEn ? "rounds" : "جولات"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
+      )}
+
+      {/* Log form — rounds only */}
+      <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800">
+        <input
+          type="number"
+          inputMode="numeric"
+          value={rounds}
+          onChange={e => setRounds(e.target.value)}
+          placeholder={isEn ? "Rounds" : "جولات"}
+          className="flex-1 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
+        />
+        <button
+          onClick={submit}
+          disabled={pending}
+          className={`shrink-0 h-9 px-5 rounded-lg font-bold text-sm transition ${
+            flash === "ok"  ? "bg-green-600 text-white" :
+            flash === "err" ? "bg-red-600 text-white"   :
+            "bg-blue-600 hover:bg-blue-500 text-white"
+          } disabled:opacity-50`}
+        >
+          {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
+        </button>
+      </div>
     </div>
   );
 }
@@ -581,23 +721,17 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
       {main.length > 0 && (
         <Section title={t.mainTitle} color="text-blue-400">
           <div className="space-y-3">
-            {groupExercises(main).map((item, i) =>
-              Array.isArray(item) ? (
-                <CardioGroupCard
-                  key={`group-${i}`}
-                  exercises={item}
-                  allHistory={workoutHistory}
-                  programDayId={day.id}
-                />
-              ) : (
-                <ExerciseTrackerCard
-                  key={item.id}
-                  ex={item}
-                  history={getHistory(item, workoutHistory)}
-                  programDayId={day.id}
-                />
-              )
-            )}
+            {groupExercises(main).map((group, i) => {
+              if (group.kind === "choice") return (
+                <CardioGroupCard key={`choice-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
+              );
+              if (group.kind === "circuit") return (
+                <CircuitCard key={`circuit-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
+              );
+              return (
+                <ExerciseTrackerCard key={group.ex.id} ex={group.ex} history={getHistory(group.ex, workoutHistory)} programDayId={day.id} />
+              );
+            })}
           </div>
         </Section>
       )}
@@ -606,23 +740,17 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
       {core.length > 0 && (
         <Section title={t.coreTitle} color="text-purple-400">
           <div className="space-y-3">
-            {groupExercises(core).map((item, i) =>
-              Array.isArray(item) ? (
-                <CardioGroupCard
-                  key={`group-${i}`}
-                  exercises={item}
-                  allHistory={workoutHistory}
-                  programDayId={day.id}
-                />
-              ) : (
-                <ExerciseTrackerCard
-                  key={item.id}
-                  ex={item}
-                  history={getHistory(item, workoutHistory)}
-                  programDayId={day.id}
-                />
-              )
-            )}
+            {groupExercises(core).map((group, i) => {
+              if (group.kind === "choice") return (
+                <CardioGroupCard key={`choice-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
+              );
+              if (group.kind === "circuit") return (
+                <CircuitCard key={`circuit-${i}`} exercises={group.exercises} allHistory={workoutHistory} programDayId={day.id} />
+              );
+              return (
+                <ExerciseTrackerCard key={group.ex.id} ex={group.ex} history={getHistory(group.ex, workoutHistory)} programDayId={day.id} />
+              );
+            })}
           </div>
         </Section>
       )}
