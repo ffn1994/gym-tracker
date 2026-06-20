@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProgramTab } from "./ProgramTab";
 import { useLang } from "@/app/lang";
+import { deleteAllWorkouts } from "./program/[id]/actions";
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -125,6 +127,9 @@ export function DashboardClient({
   const { t, lang } = useLang();
   const isEn = lang === "en";
   const [tab, setTab] = useState<"program" | "progress" | "stats">("program");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, startReset] = useTransition();
+  const router = useRouter();
 
   const weekStart = useMemo(getWeekStart, []);
   const thisWeekWorkouts = useMemo(
@@ -136,8 +141,41 @@ export function DashboardClient({
     [programDays, programExercises, workouts, weekStart]
   );
 
+  function handleReset() {
+    startReset(async () => {
+      await deleteAllWorkouts();
+      setConfirmReset(false);
+      router.refresh();
+    });
+  }
+
   return (
     <>
+      {/* Reset button — top right */}
+      <div className="flex justify-end mb-3">
+        {confirmReset ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-red-400">{isEn ? "Delete all?" : "مسح كل السجل؟"}</span>
+            <button
+              onClick={handleReset}
+              disabled={resetting}
+              className="text-xs text-red-400 font-bold hover:text-red-300 disabled:opacity-50"
+            >✓</button>
+            <button
+              onClick={() => setConfirmReset(false)}
+              className="text-xs text-gray-500 hover:text-gray-300"
+            >✗</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmReset(true)}
+            className="text-xs text-gray-700 hover:text-red-500 transition px-2 py-1 rounded-lg hover:bg-gray-900"
+          >
+            🗑️ {isEn ? "Reset all" : "مسح الكل"}
+          </button>
+        )}
+      </div>
+
       {/* Tab bar */}
       <div className="flex items-center justify-center mb-6">
         <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
