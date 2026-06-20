@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/app/lang";
-import { logExercise, logBodyWeight, saveSessionNote, deleteAllWorkouts, deleteExerciseHistory } from "./actions";
+import { logExercise, logBodyWeight, saveSessionNote, deleteAllWorkouts, deleteExerciseHistory, getExerciseSuggestion } from "./actions";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 
@@ -414,6 +414,33 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
     });
   }
 
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggPending, startSuggTransition] = useTransition();
+
+  function fetchSuggestion() {
+    setSuggestion(null);
+    startSuggTransition(async () => {
+      try {
+        const result = await getExerciseSuggestion({
+          exerciseName: ex.exercise_name,
+          exerciseNameEn: ex.exercise_name_en,
+          history: [...history].reverse().slice(-5).map(h => ({
+            date: h.date,
+            weight_kg: Number(h.weight_kg),
+            sets: h.sets,
+            reps: h.reps,
+          })),
+          targetSets: ex.sets,
+          targetRepsMin: ex.reps_min,
+          targetRepsMax: ex.reps_max,
+        });
+        setSuggestion(result);
+      } catch {
+        setSuggestion(isEn ? "Could not get suggestion." : "تعذّر الحصول على اقتراح.");
+      }
+    });
+  }
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
 
@@ -427,6 +454,14 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
           <span className="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
             {formatTarget(ex)}
           </span>
+          <button
+            onClick={fetchSuggestion}
+            disabled={suggPending}
+            title={isEn ? "AI suggestion" : "اقتراح AI"}
+            className="text-gray-600 hover:text-purple-400 text-base leading-none transition disabled:opacity-40"
+          >
+            {suggPending ? "⏳" : "🤖"}
+          </button>
           {history.length > 0 && (
             confirmDel ? (
               <div className="flex items-center gap-1">
@@ -439,6 +474,15 @@ function ExerciseTrackerCard({ ex, history, programDayId }: {
           )}
         </div>
       </div>
+
+      {/* AI Suggestion bubble */}
+      {suggestion && (
+        <div className="mx-4 mb-2 rounded-xl bg-purple-950/40 border border-purple-800/50 px-3 py-2.5 flex items-start gap-2">
+          <span className="text-base shrink-0">🤖</span>
+          <p className="text-xs text-purple-200 flex-1 leading-relaxed">{suggestion}</p>
+          <button onClick={() => setSuggestion(null)} className="text-gray-600 hover:text-gray-400 text-xs shrink-0 mt-0.5">✕</button>
+        </div>
+      )}
 
       {/* History */}
       {history.length > 0 ? (
