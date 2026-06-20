@@ -91,6 +91,202 @@ function weekLabel(date: string, history: WorkoutEntry[], prefix: string): strin
   return `${prefix}${Math.floor(diffDays / 7) + 1}`;
 }
 
+/* ─── Group helpers ──────────────────────────────────────────── */
+
+function isAlternativeExercise(ex: ProgramExercise): boolean {
+  const note = (ex.notes_en ?? ex.notes ?? "").toLowerCase();
+  return note.includes("pick one") || note.includes("اختر واحد");
+}
+
+function groupExercises(exercises: ProgramExercise[]): Array<ProgramExercise | ProgramExercise[]> {
+  const result: Array<ProgramExercise | ProgramExercise[]> = [];
+  let group: ProgramExercise[] = [];
+  for (const ex of exercises) {
+    if (isAlternativeExercise(ex)) {
+      group.push(ex);
+    } else {
+      if (group.length > 1) result.push(group);
+      else if (group.length === 1) result.push(group[0]);
+      group = [];
+      result.push(ex);
+    }
+  }
+  if (group.length > 1) result.push(group);
+  else if (group.length === 1) result.push(group[0]);
+  return result;
+}
+
+/* ─── Cardio Group Card (pick one of N alternatives) ─────────── */
+
+function CardioGroupCard({
+  exercises,
+  allHistory,
+  programDayId,
+}: {
+  exercises: ProgramExercise[];
+  allHistory: WorkoutEntry[];
+  programDayId: number;
+}) {
+  const { lang, t } = useLang();
+  const isEn = lang === "en";
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<"idle" | "ok" | "err">("idle");
+
+  const selected = exercises[selectedIdx];
+  const isTimed = selected.duration_seconds !== null && selected.reps_min === null;
+  const history = getHistory(selected, allHistory);
+  const latest = history[0];
+  const todayStr = new Date().toISOString().split("T")[0];
+  const loggedToday = history.some(h => h.date === todayStr);
+
+  const isLongDuration = (selected.duration_seconds ?? 0) >= 120;
+  const [sets, setSets] = useState(
+    latest ? String(latest.sets) : (selected.sets ? String(selected.sets) : "")
+  );
+  const [reps, setReps] = useState(
+    latest ? String(latest.reps) : ""
+  );
+
+  function handleSelect(idx: number) {
+    if (idx === selectedIdx) return;
+    setSelectedIdx(idx);
+    const ex = exercises[idx];
+    const hist = getHistory(ex, allHistory);
+    const last = hist[0];
+    const timed = ex.duration_seconds !== null && ex.reps_min === null;
+    setSets(last ? String(last.sets) : (ex.sets ? String(ex.sets) : ""));
+    setReps(last ? String(last.reps) : "");
+    setFlash("idle");
+  }
+
+  function submit() {
+    const s = parseInt(sets) || 1;
+    const r = parseInt(reps) || 0;
+    startTransition(async () => {
+      try {
+        await logExercise({
+          exercise_name: selected.exercise_name,
+          muscle_group: selected.muscle_group,
+          weight_kg: 0,
+          sets: s,
+          reps: r,
+          notes: "",
+          program_day_id: programDayId,
+        });
+        setFlash("ok");
+        setTimeout(() => setFlash("idle"), 1800);
+      } catch {
+        setFlash("err");
+        setTimeout(() => setFlash("idle"), 1800);
+      }
+    });
+  }
+
+  const rawNote = isEn ? (selected.notes_en ?? selected.notes) : selected.notes;
+  const displayNote = rawNote
+    ?.replace(/\s*[—–-]\s*(pick one of the three|اختر واحد[^.،]*)\.?/gi, "")
+    .trim();
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          {isEn ? "Choose one" : "اختر نوع التمرين"}
+        </span>
+        {loggedToday && (
+          <span className="text-xs text-green-400 font-medium">{t.loggedToday} ✓</span>
+        )}
+      </div>
+
+      {/* Selector tabs */}
+      <div className="flex gap-2 p-3">
+        {exercises.map((ex, idx) => {
+          const name = isEn ? (ex.exercise_name_en ?? ex.exercise_name) : ex.exercise_name;
+          const hist = getHistory(ex, allHistory);
+          return (
+            <button
+              key={ex.id}
+              onClick={() => handleSelect(idx)}
+              className={`flex-1 py-2.5 px-1 text-xs font-semibold rounded-xl border transition text-center leading-tight ${
+                selectedIdx === idx
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
+              }`}
+            >
+              {name}
+              {hist.length > 0 && (
+                <span className={`block text-xs mt-0.5 ${selectedIdx === idx ? "opacity-70" : "opacity-50"}`}>
+                  {hist.length} {isEn ? "sessions" : "جلسة"}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* History for selected */}
+      {history.length > 0 ? (
+        <div className="border-t border-gray-800 divide-y divide-gray-800/60">
+          {history.slice(0, 6).map((entry, idx) => {
+            const wk = weekLabel(entry.date, history, t.weekLabel);
+            return (
+              <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-xs">
+                <span className="w-7 text-gray-600 shrink-0 font-mono">{wk}</span>
+                <span className="w-14 text-gray-500 shrink-0">{formatDate(entry.date)}</span>
+                <span className="text-gray-300 flex-1">
+                  {isTimed
+                    ? `${entry.sets} × ${entry.reps}${isLongDuration ? "m" : "s"}`
+                    : `${entry.sets}×${entry.reps}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-700 px-4 pb-3 border-t border-gray-800 pt-2">{t.noHistory}</p>
+      )}
+
+      {/* Log form */}
+      <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800">
+        <input
+          type="number"
+          inputMode="numeric"
+          value={sets}
+          onChange={e => setSets(e.target.value)}
+          placeholder={t.sets}
+          className="flex-1 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
+        />
+        <input
+          type="number"
+          inputMode="numeric"
+          value={reps}
+          onChange={e => setReps(e.target.value)}
+          placeholder={isLongDuration ? t.min : isTimed ? t.seconds : t.reps}
+          className="flex-1 bg-gray-800 text-white text-center text-sm rounded-lg px-2 py-2 border border-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600"
+        />
+        <button
+          onClick={submit}
+          disabled={pending}
+          className={`shrink-0 h-9 px-3 rounded-lg font-bold text-sm transition ${
+            flash === "ok"  ? "bg-green-600 text-white" :
+            flash === "err" ? "bg-red-600 text-white"   :
+            "bg-blue-600 hover:bg-blue-500 text-white"
+          } disabled:opacity-50`}
+        >
+          {pending ? "…" : flash === "ok" ? "✓" : flash === "err" ? "✗" : t.logEntry}
+        </button>
+      </div>
+
+      {displayNote && (
+        <p className="text-xs text-gray-600 px-4 pb-2.5">{displayNote}</p>
+      )}
+    </div>
+  );
+}
+
 /* ─── Exercise Tracker Card ──────────────────────────────────── */
 
 function ExerciseTrackerCard({
@@ -385,14 +581,23 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
       {main.length > 0 && (
         <Section title={t.mainTitle} color="text-blue-400">
           <div className="space-y-3">
-            {main.map(ex => (
-              <ExerciseTrackerCard
-                key={ex.id}
-                ex={ex}
-                history={getHistory(ex, workoutHistory)}
-                programDayId={day.id}
-              />
-            ))}
+            {groupExercises(main).map((item, i) =>
+              Array.isArray(item) ? (
+                <CardioGroupCard
+                  key={`group-${i}`}
+                  exercises={item}
+                  allHistory={workoutHistory}
+                  programDayId={day.id}
+                />
+              ) : (
+                <ExerciseTrackerCard
+                  key={item.id}
+                  ex={item}
+                  history={getHistory(item, workoutHistory)}
+                  programDayId={day.id}
+                />
+              )
+            )}
           </div>
         </Section>
       )}
@@ -401,14 +606,23 @@ export function ProgramDayView({ day, exercises, workoutHistory }: {
       {core.length > 0 && (
         <Section title={t.coreTitle} color="text-purple-400">
           <div className="space-y-3">
-            {core.map(ex => (
-              <ExerciseTrackerCard
-                key={ex.id}
-                ex={ex}
-                history={getHistory(ex, workoutHistory)}
-                programDayId={day.id}
-              />
-            ))}
+            {groupExercises(core).map((item, i) =>
+              Array.isArray(item) ? (
+                <CardioGroupCard
+                  key={`group-${i}`}
+                  exercises={item}
+                  allHistory={workoutHistory}
+                  programDayId={day.id}
+                />
+              ) : (
+                <ExerciseTrackerCard
+                  key={item.id}
+                  ex={item}
+                  history={getHistory(item, workoutHistory)}
+                  programDayId={day.id}
+                />
+              )
+            )}
           </div>
         </Section>
       )}
