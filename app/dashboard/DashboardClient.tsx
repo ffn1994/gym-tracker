@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { WorkoutCard } from "./WorkoutCard";
 import { AddWorkoutModal } from "./AddWorkoutModal";
 import { ProgramTab } from "./ProgramTab";
+import { useLang } from "@/app/lang";
+import { LangToggle } from "@/app/LangToggle";
 
 type ProgramDay = {
   id: number;
@@ -53,6 +55,7 @@ export function DashboardClient({
   programDays: ProgramDay[];
   programExercises: ProgramExercise[];
 }) {
+  const { t } = useLang();
   const [tab, setTab] = useState<"workouts" | "progress" | "stats" | "program">("program");
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -62,12 +65,12 @@ export function DashboardClient({
   const [dateTo, setDateTo] = useState("");
 
   const muscleGroups = useMemo(
-    () => [...new Set(workouts.map((w) => w.muscle_group))].sort(),
+    () => [...new Set(workouts.map(w => w.muscle_group))].sort(),
     [workouts]
   );
 
   const filtered = useMemo(() => {
-    return workouts.filter((w) => {
+    return workouts.filter(w => {
       const matchSearch = !search || w.exercise_name.toLowerCase().includes(search.toLowerCase());
       const matchMuscle = !muscleFilter || w.muscle_group === muscleFilter;
       const matchDiff = !diffFilter || w.difficulty_level === diffFilter;
@@ -79,12 +82,12 @@ export function DashboardClient({
 
   const progress = useMemo(() => {
     const map: Record<string, Workout[]> = {};
-    [...workouts].sort((a, b) => a.date.localeCompare(b.date)).forEach((w) => {
+    [...workouts].sort((a, b) => a.date.localeCompare(b.date)).forEach(w => {
       if (!map[w.exercise_name]) map[w.exercise_name] = [];
       map[w.exercise_name].push(w);
     });
     return Object.entries(map).map(([name, sessions]) => {
-      const weights = sessions.map((s) => Number(s.weight_kg));
+      const weights = sessions.map(s => Number(s.weight_kg));
       const first = weights[0];
       const latest = weights[weights.length - 1];
       const best = Math.max(...weights);
@@ -95,15 +98,15 @@ export function DashboardClient({
   const stats = useMemo(() => {
     if (workouts.length === 0) return null;
     const muscleCounts: Record<string, number> = {};
-    workouts.forEach((w) => { muscleCounts[w.muscle_group] = (muscleCounts[w.muscle_group] || 0) + 1; });
+    workouts.forEach(w => { muscleCounts[w.muscle_group] = (muscleCounts[w.muscle_group] || 0) + 1; });
     const topMuscle = Object.entries(muscleCounts).sort((a, b) => b[1] - a[1])[0];
     const heaviest = workouts.reduce((max, w) => Number(w.weight_kg) > Number(max.weight_kg) ? w : max, workouts[0]);
     const totalVolume = workouts.reduce((sum, w) => sum + Number(w.weight_kg) * w.sets * w.reps, 0);
-    const uniqueExercises = new Set(workouts.map((w) => w.exercise_name)).size;
+    const uniqueExercises = new Set(workouts.map(w => w.exercise_name)).size;
     const diffCounts = { Easy: 0, Medium: 0, Hard: 0 } as Record<string, number>;
-    workouts.forEach((w) => { if (w.difficulty_level in diffCounts) diffCounts[w.difficulty_level]++; });
+    workouts.forEach(w => { if (w.difficulty_level in diffCounts) diffCounts[w.difficulty_level]++; });
     const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    const thisWeek = workouts.filter((w) => new Date(w.date) >= weekStart).length;
+    const thisWeek = workouts.filter(w => new Date(w.date) >= weekStart).length;
     return { topMuscle, heaviest, totalVolume, uniqueExercises, diffCounts, thisWeek };
   }, [workouts]);
 
@@ -112,16 +115,22 @@ export function DashboardClient({
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
-          <TabBtn active={tab === "program"} onClick={() => setTab("program")}>البرنامج</TabBtn>
-          <TabBtn active={tab === "workouts"} onClick={() => setTab("workouts")}>تماريني</TabBtn>
-          <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>تقدم</TabBtn>
-          <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>إحصاء</TabBtn>
+          <TabBtn active={tab === "program"} onClick={() => setTab("program")}>{t.tabProgram}</TabBtn>
+          <TabBtn active={tab === "workouts"} onClick={() => setTab("workouts")}>{t.tabWorkouts}</TabBtn>
+          <TabBtn active={tab === "progress"} onClick={() => setTab("progress")}>{t.tabProgress}</TabBtn>
+          <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>{t.tabStats}</TabBtn>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition">
-          <span className="text-lg leading-none">+</span> Log Workout
-        </button>
+        <div className="flex items-center gap-2">
+          <LangToggle />
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition"
+          >
+            {t.logWorkout}
+          </button>
+        </div>
       </div>
 
       {/* PROGRAM TAB */}
@@ -130,7 +139,6 @@ export function DashboardClient({
           programDays={programDays}
           programExercises={programExercises}
           workouts={workouts}
-          onAdd={() => setShowAdd(true)}
         />
       )}
 
@@ -139,33 +147,52 @@ export function DashboardClient({
         <>
           {workouts.length > 0 && (
             <div className="flex flex-wrap gap-3 mb-5">
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exercise…" className="flex-1 min-w-[160px] px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <select value={muscleFilter} onChange={(e) => setMuscleFilter(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All muscles</option>
-                {muscleGroups.map((m) => <option key={m} value={m}>{m}</option>)}
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="flex-1 min-w-[160px] px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={muscleFilter}
+                onChange={e => setMuscleFilter(e.target.value)}
+                className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">{t.allMuscles}</option>
+                {muscleGroups.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
-              <select value={diffFilter} onChange={(e) => setDiffFilter(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All levels</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
+              <select
+                value={diffFilter}
+                onChange={e => setDiffFilter(e.target.value)}
+                className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">{t.allLevels}</option>
+                <option value="Easy">{t.easy}</option>
+                <option value="Medium">{t.medium}</option>
+                <option value="Hard">{t.hard}</option>
               </select>
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" title="From date" />
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" title="To date" />
-              {hasFilters && <button onClick={() => { setSearch(""); setMuscleFilter(""); setDiffFilter(""); setDateFrom(""); setDateTo(""); }} className="px-3 py-2 text-sm text-gray-400 hover:text-white transition">Clear</button>}
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {hasFilters && (
+                <button onClick={() => { setSearch(""); setMuscleFilter(""); setDiffFilter(""); setDateFrom(""); setDateTo(""); }} className="px-3 py-2 text-sm text-gray-400 hover:text-white transition">
+                  {t.clearFilters}
+                </button>
+              )}
             </div>
           )}
           {filtered.length > 0 ? (
             <>
-              {hasFilters && <p className="text-xs text-gray-500 mb-3">{filtered.length} of {workouts.length} workouts</p>}
-              <div className="grid gap-4">{filtered.map((w) => <WorkoutCard key={w.id} w={w} />)}</div>
+              {hasFilters && <p className="text-xs text-gray-500 mb-3">{filtered.length} {t.of} {workouts.length} {t.workoutsCount}</p>}
+              <div className="grid gap-4">{filtered.map(w => <WorkoutCard key={w.id} w={w} />)}</div>
             </>
           ) : workouts.length === 0 ? (
             <EmptyState onAdd={() => setShowAdd(true)} />
           ) : (
             <div className="text-center py-16 text-gray-600">
-              <p className="text-lg">No workouts match your filters.</p>
-              <button onClick={() => { setSearch(""); setMuscleFilter(""); setDiffFilter(""); }} className="mt-2 text-sm text-blue-400 hover:text-blue-300 transition">Clear filters</button>
+              <p className="text-lg">{t.noMatchFilters}</p>
+              <button onClick={() => { setSearch(""); setMuscleFilter(""); setDiffFilter(""); }} className="mt-2 text-sm text-blue-400 hover:text-blue-300 transition">
+                {t.clearFiltersLink}
+              </button>
             </div>
           )}
         </>
@@ -175,30 +202,30 @@ export function DashboardClient({
       {tab === "progress" && (
         progress.length === 0 ? <EmptyState onAdd={() => setShowAdd(true)} /> : (
           <div className="grid gap-4">
-            {progress.map((ex) => (
+            {progress.map(ex => (
               <div key={ex.name} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div>
                     <h3 className="text-base font-semibold text-white">{ex.name}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{ex.muscle_group} · {ex.sessions} session{ex.sessions !== 1 ? "s" : ""}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{ex.muscle_group} · {ex.sessions} {t.sessions}</p>
                   </div>
                   <TrendBadge gained={ex.gained} />
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  <StatBox label="Starting" value={`${ex.first} kg`} />
-                  <StatBox label="Best" value={`${ex.best} kg`} highlight />
-                  <StatBox label="Latest" value={`${ex.latest} kg`} />
+                  <StatBox label={t.startingWeight} value={`${ex.first} kg`} />
+                  <StatBox label={t.bestWeight} value={`${ex.best} kg`} highlight />
+                  <StatBox label={t.latestWeight} value={`${ex.latest} kg`} />
                 </div>
                 {ex.sessions > 1 && (
                   <div className="border-t border-gray-800 pt-3">
-                    <p className="text-xs text-gray-500 mb-2">Session history</p>
+                    <p className="text-xs text-gray-500 mb-2">{t.sessionHistory}</p>
                     <div className="space-y-1.5">
-                      {ex.history.map((s) => (
+                      {ex.history.map(s => (
                         <div key={s.id} className="flex items-center justify-between text-xs">
                           <span className="text-gray-400">{s.date}</span>
                           <div className="flex items-center gap-3 text-gray-300">
                             <span>{s.sets}×{s.reps}</span>
-                            <span className="font-semibold text-white w-16 text-right">{s.weight_kg} kg</span>
+                            <span className="font-semibold text-white w-16 text-end">{s.weight_kg} kg</span>
                           </div>
                         </div>
                       ))}
@@ -215,28 +242,27 @@ export function DashboardClient({
       {tab === "stats" && (
         !stats ? <EmptyState onAdd={() => setShowAdd(true)} /> : (
           <div className="space-y-6">
-            {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <BigStat icon="📋" label="Total Sessions" value={String(workouts.length)} />
-              <BigStat icon="📅" label="This Week" value={String(stats.thisWeek)} />
-              <BigStat icon="💪" label="Exercises" value={String(stats.uniqueExercises)} />
-              <BigStat icon="🏆" label="Top Muscle" value={stats.topMuscle[0]} sub={`${stats.topMuscle[1]} sessions`} />
-              <BigStat icon="⚡" label="Heaviest Lift" value={`${stats.heaviest.weight_kg} kg`} sub={stats.heaviest.exercise_name} />
-              <BigStat icon="📦" label="Total Volume" value={`${(stats.totalVolume / 1000).toFixed(1)}t`} sub="kg lifted total" />
+              <BigStat icon="📋" label={t.totalSessions} value={String(workouts.length)} />
+              <BigStat icon="📅" label={t.thisWeek} value={String(stats.thisWeek)} />
+              <BigStat icon="💪" label={t.totalExercises} value={String(stats.uniqueExercises)} />
+              <BigStat icon="🏆" label={t.topMuscle} value={stats.topMuscle[0]} sub={`${stats.topMuscle[1]} ${t.sessions}`} />
+              <BigStat icon="⚡" label={t.heaviestLift} value={`${stats.heaviest.weight_kg} kg`} sub={stats.heaviest.exercise_name} />
+              <BigStat icon="📦" label={t.totalVolume} value={`${(stats.totalVolume / 1000).toFixed(1)}t`} sub={t.kgLiftedTotal} />
             </div>
 
-            {/* Difficulty breakdown */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">Difficulty Breakdown</h3>
+              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">{t.difficultyBreakdown}</h3>
               <div className="space-y-3">
-                {(["Easy", "Medium", "Hard"] as const).map((d) => {
+                {(["Easy", "Medium", "Hard"] as const).map(d => {
                   const count = stats.diffCounts[d] ?? 0;
                   const pct = workouts.length ? Math.round((count / workouts.length) * 100) : 0;
                   const color = d === "Hard" ? "bg-red-500" : d === "Medium" ? "bg-yellow-500" : "bg-green-500";
+                  const label = d === "Hard" ? t.hard : d === "Medium" ? t.medium : t.easy;
                   return (
                     <div key={d}>
                       <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>{d}</span><span>{count} sessions ({pct}%)</span>
+                        <span>{label}</span><span>{count} {t.sessions} ({pct}%)</span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -247,9 +273,8 @@ export function DashboardClient({
               </div>
             </div>
 
-            {/* Muscle distribution */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">Muscle Groups</h3>
+              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">{t.muscleGroupsTitle}</h3>
               <div className="space-y-3">
                 {Object.entries(
                   workouts.reduce((acc, w) => { acc[w.muscle_group] = (acc[w.muscle_group] || 0) + 1; return acc; }, {} as Record<string, number>)
@@ -258,7 +283,7 @@ export function DashboardClient({
                   return (
                     <div key={muscle}>
                       <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>{muscle}</span><span>{count} sessions</span>
+                        <span>{muscle}</span><span>{count} {t.sessions}</span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
@@ -306,19 +331,21 @@ function BigStat({ icon, label, value, sub }: { icon: string; label: string; val
 }
 
 function TrendBadge({ gained }: { gained: number }) {
+  const { t } = useLang();
   if (gained > 0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-900/50 text-green-300 border border-green-800">+{gained} kg</span>;
   if (gained < 0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-900/50 text-red-300 border border-red-800">{gained} kg</span>;
-  return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-700">No change</span>;
+  return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-700">{t.noChange}</span>;
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
+  const { t } = useLang();
   return (
     <div className="text-center py-20 text-gray-600">
       <div className="text-5xl mb-4">📋</div>
-      <p className="text-lg font-medium text-gray-400">No workouts logged yet.</p>
-      <p className="text-sm mt-1 mb-5">Start tracking your sessions!</p>
+      <p className="text-lg font-medium text-gray-400">{t.noWorkoutsTitle}</p>
+      <p className="text-sm mt-1 mb-5">{t.noWorkoutsSubtitle}</p>
       <button onClick={onAdd} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition">
-        + Log Your First Workout
+        {t.logFirst}
       </button>
     </div>
   );
