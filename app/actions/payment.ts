@@ -53,12 +53,16 @@ export async function createPaymentSession() {
   });
 
   const data = await res.json();
+  console.log("MyFatoorah SendPayment response:", JSON.stringify(data));
 
-  if (data.IsSuccess && data.Data?.PaymentURL) {
-    redirect(data.Data.PaymentURL);
+  const paymentUrl = data.Data?.PaymentURL ?? data.Data?.InvoiceURL;
+  if (data.IsSuccess && paymentUrl) {
+    redirect(paymentUrl);
   }
 
-  redirect("/payment/failed");
+  const errMsg = data.Message ?? data.ValidationErrors?.[0]?.Error ?? "Payment failed";
+  console.error("MyFatoorah error:", errMsg);
+  redirect(`/payment/failed?msg=${encodeURIComponent(errMsg)}`);
 }
 
 export async function verifyPayment(paymentId: string) {
