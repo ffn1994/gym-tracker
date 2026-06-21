@@ -10,6 +10,14 @@ export default async function ProgramDayPage({ params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_paid")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_paid) redirect("/buy");
+
   const { data: day } = await supabase
     .from("program_days")
     .select("*")

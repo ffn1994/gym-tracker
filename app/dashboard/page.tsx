@@ -10,6 +10,14 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_paid")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_paid) redirect("/buy");
+
   const { data: workouts } = await supabase
     .from("workouts")
     .select("*")

@@ -2,6 +2,19 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdmin } from "@supabase/supabase-js";
+
+export async function markUserAsPaid(userId: string) {
+  const admin = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  await admin.from("profiles").upsert({
+    id: userId,
+    is_paid: true,
+    paid_at: new Date().toISOString(),
+  });
+}
 
 const MYFATOORAH_BASE = "https://api.myfatoorah.com";
 
