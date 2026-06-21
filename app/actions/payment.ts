@@ -16,7 +16,7 @@ export async function markUserAsPaid(userId: string) {
   });
 }
 
-const MYFATOORAH_BASE = "https://api.myfatoorah.com";
+const MYFATOORAH_BASE = "https://apitest.myfatoorah.com";
 
 export async function createPaymentSession() {
   const supabase = await createClient();
